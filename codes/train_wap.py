@@ -18,14 +18,14 @@ reload_flag = False
 
 # load configurations
 # root_paths
-bfs2_path = ''
-work_path = ''
+bfs2_path = '../data/'
+work_path = '../train/'
 
 model_idx = 7
 # paths
-dictionaries = [bfs2_path + '106_dictionary.txt', bfs2_path + '7relation_dictionary.txt']
-datasets = [bfs2_path + 'jiaming-train-py3.pkl', bfs2_path + 'train_data_v1_label_gtd.pkl', bfs2_path + 'train_data_v1_label_align_gtd.pkl']
-valid_datasets = [bfs2_path + 'jiaming-valid-py3.pkl', bfs2_path + 'valid_data_v1_label_gtd.pkl', bfs2_path + 'valid_data_v1_label_align_gtd.pkl']
+dictionaries = [bfs2_path + 'dictionary.txt', bfs2_path + 'relation_dictionary.txt']
+datasets = [bfs2_path + 'offline-train.pkl', bfs2_path + 'train_caption_label_gtd.pkl', bfs2_path + 'train_caption_label_align_gtd.pkl']
+valid_datasets = [bfs2_path + 'offline-test.pkl', bfs2_path + 'test_caption_label_gtd.pkl', bfs2_path + 'test_caption_label_align_gtd.pkl']
 valid_output = [work_path+'results'+str(model_idx)+'/symbol_relation/', work_path+'results'+str(model_idx)+'/memory_alpha/']
 valid_result = [work_path+'results'+str(model_idx)+'/valid.cer', work_path+'results'+str(model_idx)+'/valid.exprate']
 saveto = work_path+'models'+str(model_idx)+'/WAP_params.pkl'
@@ -40,8 +40,8 @@ if multi_gpu_flag:
 else:
     batch_Imagesize = 500000
     valid_batch_Imagesize = 500000
-    batch_size = 8
-    valid_batch_size = 8
+    batch_size = 2  ## 8
+    valid_batch_size = 2    ## 8
     maxImagesize = 500000
 maxlen = 200
 max_epochs = 5000
@@ -64,9 +64,9 @@ params['n'] = 256
 params['m'] = 256
 params['dim_attention'] = 512
 params['D'] = 684
-params['K'] = 106
+params['K'] = 113   # num class : 106
 
-params['Kre'] = 7
+params['Kre'] = 7   # num relation
 params['mre'] = 256
 params['maxlen'] = maxlen
 

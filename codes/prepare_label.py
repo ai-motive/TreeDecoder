@@ -4,14 +4,14 @@ import os
 import sys
 import pickle as pkl
 import numpy
-from scipy.misc import imread, imresize, imsave
+# from scipy.misc import imread, imresize, imsave
 
 
 def gen_gtd_label():
 
-    bfs1_path = ''
-    gtd_root_path = ''
-    gtd_paths = ['']
+    bfs1_path = '../data/'
+    gtd_root_path = '../data/'
+    gtd_paths = ['train_caption', 'test_caption']
 
     for gtd_path in gtd_paths:
         outpkl_label_file = bfs1_path + gtd_path + '_label_gtd.pkl'
@@ -55,9 +55,9 @@ def gen_gtd_label():
 
 def gen_gtd_align():
 
-    bfs1_path = ''
-    gtd_root_path = ''
-    gtd_paths = ['']
+    bfs1_path = '../data/'
+    gtd_root_path = '../data/'
+    gtd_paths = ['train_caption', 'test_caption']
     
     for gtd_path in gtd_paths:
         outpkl_label_file = bfs1_path + gtd_path + '_label_align_gtd.pkl'

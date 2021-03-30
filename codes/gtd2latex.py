@@ -46,9 +46,9 @@ def convert(nodeid, gtd_list):
                     return_string += convert(child_list[i][1], gtd_list)
         return return_string
 
-latex_root_path = '***'
-gtd_root_path = '***'
-gtd_paths = ['test_caption_14','test_caption_16','test_caption_19']
+latex_root_path = '../data/latex/'
+gtd_root_path = '../data/'
+gtd_paths = ['train_caption', 'test_caption']
 
 for gtd_path in gtd_paths:
     gtd_files = os.listdir(gtd_root_path + gtd_path + '/')

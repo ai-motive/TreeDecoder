@@ -5,9 +5,10 @@ import sys
 import pickle as pkl
 import numpy
 
-latex_root_path = ''
-gtd_root_path = ''
-latex_files = ['test_caption_16.txt','test_caption_19.txt','valid_data_v1.txt','train_data_v1.txt','test_caption_14.txt'] 
+latex_root_path = '../data/'
+gtd_root_path = '../data/'
+# latex_files = ['test_caption_16.txt','test_caption_19.txt','valid_data_v1.txt','train_data_v1.txt','test_caption_14.txt']
+latex_files = ['train_caption.txt','test_caption.txt']
 for latexF in latex_files:
     latex_file = latex_root_path + latexF
     gtd_path = gtd_root_path + latexF[:-4] + '/'

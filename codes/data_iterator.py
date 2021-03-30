@@ -1,3 +1,4 @@
+import sys
 import numpy
 
 import pickle as pkl
@@ -47,12 +48,14 @@ def dataIterator(feature_file,label_file,align_file,dictionary,redictionary,batc
                 lchar_list.append(dictionary[lchar])
             else:
                 print ('a symbol not in the dictionary !! formula',uid ,'symbol', lchar)
-                sys.exit()
+                # sys.exit()
+                continue ##
             if dictionary.__contains__(rchar):
                 rchar_list.append(dictionary[rchar])
             else:
                 print ('a symbol not in the dictionary !! formula',uid ,'symbol', rchar)
-                sys.exit()
+                # sys.exit()
+                continue ##
             
             lpos_list.append(int(lpos))
             rpos_list.append(int(rpos))  
