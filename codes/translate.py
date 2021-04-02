@@ -203,13 +203,13 @@ def main(model_path, dictionary_target, dictionary_retarget, fea, output_path, k
     params['m'] = 256
     params['dim_attention'] = 512
     params['D'] = 684
-    params['K'] = 106
+    params['K'] = 112   ## 106
     params['growthRate'] = 24
     params['reduction'] = 0.5
     params['bottleneck'] = True
     params['use_dropout'] = True
     params['input_channels'] = 1
-    params['Kre'] = 7
+    params['Kre'] = 8   ## 7
     params['mre'] = 256
 
     maxlen = 300
@@ -252,7 +252,7 @@ def main(model_path, dictionary_target, dictionary_retarget, fea, output_path, k
     model.eval()
     with torch.no_grad():
         for x in valid:
-            for xx in x:  # xx：当前batch中的一个数据,numpy
+            for xx in x:  # xx：현재 batch의 데이터 (numpy)
                 print('%d : %s' % (valid_count_idx + 1, valid_uid_list[valid_count_idx]))
                 xx_pad = np.zeros((xx.shape[0], xx.shape[1], xx.shape[2]), dtype='float32')  # (1,height,width)
                 xx_pad[:, :, :] = xx / 255.

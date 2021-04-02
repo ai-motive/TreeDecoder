@@ -14,7 +14,7 @@ multi_gpu_flag = False
 # whether init params
 init_param_flag = True
 # whether reload params
-reload_flag = False
+reload_flag = True ## False
 
 # load configurations
 # root_paths
@@ -64,9 +64,9 @@ params['n'] = 256
 params['m'] = 256
 params['dim_attention'] = 512
 params['D'] = 684
-params['K'] = 113   # num class : 106
+params['K'] = 112   ## num class : 106
 
-params['Kre'] = 7   # num relation
+params['Kre'] = 8   ## num relation
 params['mre'] = 256
 params['maxlen'] = maxlen
 
