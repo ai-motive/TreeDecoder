@@ -1,0 +1,8 @@
+End	0
+Above	1
+Below	2
+Right	3
+Inside	4
+Sup	5
+Start	6
+Sub	7
