@@ -1,5 +1,6 @@
 import sys
 import os
+
 def gen_voc(infile, vocfile):
     vocab=set()
     with open(infile) as f:
@@ -15,10 +16,19 @@ def gen_voc(infile, vocfile):
     with open(vocfile,'w') as fout:
         for i, w in enumerate(vocab):
             fout.write('{}\t{}\n'.format(w,i+1))
-        fout.write('<eol>\t0\n')
+        # fout.write('<eol>\t0\n')
+        fout.write('<s>\t{}\n'.format(len(vocab)+1))
+        fout.write('</s>\t0\n')
+
+
+dataset_type = '20K'    # CHROHME / 20K
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
-        print('gen_voc infile outfile')
+        cation_path = os.path.join(dataset_type, 'total_caption.txt')
+        dict_path = os.path.join(dataset_type, 'dictionary.txt')
+        gen_voc(cation_path, dict_path)
         sys.exit(0)
-    gen_voc(sys.argv[1], sys.argv[2])
+    else:
+        gen_voc(sys.argv[1], sys.argv[2])

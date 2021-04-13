@@ -1,13 +1,18 @@
 #!/usr/bin/env python
-
 import os
 import sys
 import pickle as pkl
 import numpy
 
-latex_root_path = '../data/'
-gtd_root_path = '../data/'
-# latex_files = ['test_caption_16.txt','test_caption_19.txt','valid_data_v1.txt','train_data_v1.txt','test_caption_14.txt']
+
+BELOW_ABOVE_SYMBOLS = ['\\sum','\\int','\\lim']
+SCRIPT_SYMBOLS = ['_','^']
+
+
+dataset_type = 'CHROHME'    # CHROHME / 20K
+latex_root_path = '../data/{}/'.format(dataset_type)
+gtd_root_path = '../data/{}/'.format(dataset_type)
+
 latex_files = ['train_caption.txt','test_caption.txt']
 for latexF in latex_files:
     latex_file = latex_root_path + latexF
@@ -36,7 +41,7 @@ for latexF in latex_files:
             outidx = 1
             error_flag = False
             while idx < len(cap):
-                if idx == 0:
+                if idx == 0:    # 시작 문자
                     if cap[0] in ['{','}']:
                         print ('error: {} should NOT appears at START')
                         print (line.strip())
@@ -48,10 +53,11 @@ for latexF in latex_files:
                 else:
                     if cap[idx] == '{':
                         if cap[idx-1] == '{':
-                            print ('error: double { appears')
+                            print ('error: double { appears => ', end='')
                             print (line.strip())
-                            sys.exit()
-                        elif cap[idx-1] == '}':
+                            # sys.exit()
+                            break   ##
+                        if cap[idx-1] == '}':
                             if gtd_stack[-1][0] != '\\frac':
                                 print ('error: } { not follows frac ...', key)
                                 f_out.close()
@@ -69,15 +75,15 @@ for latexF in latex_files:
                                 gtd_stack.append([cap[idx-1],str(outidx-1),'Inside'])
                                 idx += 1
                             elif cap[idx-1] == '_':
-                                if cap[idx-2] in ['_','^','\\frac','\\sqrt']:
-                                    print ('error: ^ _ follows wrong math symbols')
+                                if cap[idx-2] in ['_', '^', '\\frac', '\\sqrt']:
+                                    print ('error: ^ _ follows wrong math symbols => ', end='')
                                     print (line.strip())
                                     sys.exit()
-                                elif cap[idx-2] in ['\\sum','\\int','\\lim']:
+                                elif cap[idx-2] in BELOW_ABOVE_SYMBOLS:
                                     gtd_stack.append([cap[idx-2],str(outidx-1),'Below'])
                                     idx += 1
                                 elif cap[idx-2] == '}':
-                                    if gtd_stack[-1][0] in ['\\sum','\\int','\\lim']:
+                                    if gtd_stack[-1][0] in BELOW_ABOVE_SYMBOLS:
                                         gtd_stack[-1][2] = 'Below'
                                     else:
                                         gtd_stack[-1][2] = 'Sub'
@@ -86,15 +92,15 @@ for latexF in latex_files:
                                     gtd_stack.append([cap[idx-2],str(outidx-1),'Sub'])
                                     idx += 1
                             elif cap[idx-1] == '^':
-                                if cap[idx-2] in ['_','^','\\frac','\\sqrt']:
-                                    print ('error: ^ _ follows wrong math symbols')
+                                if cap[idx-2] in ['_', '^', '\\frac', '\\sqrt']:
+                                    print ('error: ^ _ follows wrong math symbols => ', end='')
                                     print (line.strip())
                                     sys.exit()
-                                elif cap[idx-2] in ['\\sum','\\int','\\lim']:
+                                elif cap[idx-2] in BELOW_ABOVE_SYMBOLS:
                                     gtd_stack.append([cap[idx-2],str(outidx-1),'Above'])
                                     idx += 1
                                 elif cap[idx-2] == '}':
-                                    if gtd_stack[-1][0] in ['\\sum','\\int','\\lim']:
+                                    if gtd_stack[-1][0] in BELOW_ABOVE_SYMBOLS:
                                         gtd_stack[-1][2] = 'Above'
                                     else:
                                         gtd_stack[-1][2] = 'Sup'
@@ -112,7 +118,7 @@ for latexF in latex_files:
                         if cap[idx-1] == '}':
                             del(gtd_stack[-1])
                         idx += 1
-                    elif cap[idx] in ['_','^']:
+                    elif cap[idx] in SCRIPT_SYMBOLS:
                         if idx == len(cap)-1:
                             print ('error: ^ _ appers at end ...', key)
                             f_out.close()

@@ -56,7 +56,7 @@ halfLrFlag = 0
 bad_counter = 0
 patience = 15
 validStart = 10
-finish_after = 10000000
+finish_after = 100000000
 
 # model architecture
 params = {}
