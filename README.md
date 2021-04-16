@@ -11,9 +11,11 @@ The data will be released after it is prepared:<br>
 ### 1. Prepocess
 
 Preprocessing of training set. (.pkl)
+<br/>
 `python data/gen_pkl.py --dataset_type CROHME --op_mode train`
 
 Preprocessing of test set. (.pkl)
+<br/>
 `python data/gen_pkl.py --dataset_type CROHME --op_mode test`
 
 ### 2. Generate ME vocabulary
@@ -29,4 +31,4 @@ Preprocessing of test set. (.pkl)
 `python codes/train_wap.py --dataset_type CROHME`
 
 ### 6. Testing model
-`python codes/translate.py --model_path ../train/models7/WAP_params_last.pkl --dictionary_target ../data/CROHME/dictionary.txt --dictionary_retarget ../data/CROHME/relation_dictionary.txt --fea ../data/CROHME/offline-test.pkl --output_path ../test/CROHME/
+`python codes/translate.py --model_path ../train/models7/WAP_params_last.pkl --dictionary_target ../data/CROHME/dictionary.txt --dictionary_retarget ../data/CROHME/relation_dictionary.txt --fea ../data/CROHME/offline-test.pkl --output_path ../test/CROHME/`
