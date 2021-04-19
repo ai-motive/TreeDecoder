@@ -29,15 +29,17 @@ def main(args):
     work_path = '../train/'
 
     # paths
+    img_path = os.path.join(bfs2_path, 'image/')
+    label_path = os.path.join(bfs2_path, 'caption/')
     dictionaries = [bfs2_path + 'dictionary.txt', bfs2_path + 'relation_dictionary.txt']
-    datasets = [bfs2_path + 'offline-train.pkl', bfs2_path + 'train_caption_label_gtd.pkl', bfs2_path + 'train_caption_label_align_gtd.pkl']
-    valid_datasets = [bfs2_path + 'offline-test.pkl', bfs2_path + 'test_caption_label_gtd.pkl', bfs2_path + 'test_caption_label_align_gtd.pkl']
+    datasets = [img_path + 'offline-train.pkl', label_path + 'train_caption_label_gtd.pkl', label_path + 'train_caption_label_align_gtd.pkl']
+    valid_datasets = [img_path + 'offline-test.pkl', label_path + 'test_caption_label_gtd.pkl', label_path + 'test_caption_label_align_gtd.pkl']
 
     model_date = datetime.today().strftime("%y%m%d")
     result_path = os.path.join(work_path, 'results', model_date)
     folder_exists(result_path, create_=True)
-    valid_output = [os.path.join(result_path, 'symbol_relation'), os.path.join(result_path, model_date, 'memory_alpha')]
-    valid_result = [os.path.join(result_path, 'valid.cer'), os.path.join(result_path, model_date, 'valid.exprate')]
+    valid_output = [os.path.join(result_path, 'symbol_relation'), os.path.join(result_path, 'memory_alpha')]
+    valid_result = [os.path.join(result_path, 'valid.cer'), os.path.join(result_path, 'valid.exprate')]
 
     model_path = os.path.join(work_path, 'models', model_date)
     folder_exists(model_path, create_=True)
@@ -392,7 +394,7 @@ DATASET_TYPE = 'CROHME' # CROHME / 20K / MATHFLAT(TODO)
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         if SELF_TEST_:
-            # sys.argv.extend(["--dataset_type", DATASET_TYPE])
+            sys.argv.extend(["--dataset_type", DATASET_TYPE])
             sys.argv.extend(["--reload_flag", 'True'])
             sys.argv.extend(["--batch_size", '2'])
             sys.argv.extend(["--K", '112'])

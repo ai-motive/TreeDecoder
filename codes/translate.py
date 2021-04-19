@@ -7,6 +7,7 @@ import sys
 import torch
 from data_iterator import dataIterator, dataIterator_test
 from encoder_decoder import Encoder_Decoder
+from utils import load_dict, prepare_data, gen_sample, weight_init, compute_wer, compute_sacc
 from datetime import datetime
 
 
@@ -198,22 +199,28 @@ def load_dict(dictFile):
 def main(args):
     model_path, dictionary_target, dictionary_retarget, fea, output_path, k =\
         args.model_path, args.dictionary_target, args.dictionary_retarget, args.fea, args.output_path, args.k
+    # paths
+    root_path = "../data/CROHME/"
+    img_path = os.path.join(root_path, 'image/')
+    label_path = os.path.join(root_path, 'caption/')
+    valid_datasets = [img_path + 'offline-test.pkl', label_path + 'test_caption_label_gtd.pkl', label_path + 'test_caption_label_align_gtd.pkl']
+
     # set parameters
     params = {}
     params['n'] = 256
     params['m'] = 256
     params['dim_attention'] = 512
     params['D'] = 684
-    params['K'] = 112   ## 106
+    params['K'] = args.K   ## num class : 106
     params['growthRate'] = 24
     params['reduction'] = 0.5
     params['bottleneck'] = True
     params['use_dropout'] = True
     params['input_channels'] = 1
-    params['Kre'] = 8   ## 7
+    params['Kre'] = args.Kre   ## num relation
     params['mre'] = 256
 
-    maxlen = 300
+    maxlen = args.maxlen
     params['maxlen'] = maxlen
 
     # load model
@@ -235,8 +242,10 @@ def main(args):
     for kk, vv in reworddicts.items():
         reworddicts_r[vv] = kk
 
-    valid,valid_uid_list = dataIterator_test(fea, worddicts, reworddicts,
-                         batch_size=8, batch_Imagesize=800000,maxImagesize=800000)
+    valid, valid_uid_list = dataIterator(valid_datasets[0], valid_datasets[1], valid_datasets[2], worddicts,
+                                         reworddicts,
+                                         batch_size=args.batch_size, batch_Imagesize=800000,
+                                         maxlen=maxlen, maxImagesize=500000)
 
     # change model's mode to eval
     model.eval()
@@ -248,88 +257,94 @@ def main(args):
         os.makedirs(valid_out_path)
     if not os.path.exists(valid_malpha_path):
         os.makedirs(valid_malpha_path)
-    valid_count_idx = 0
+
     print('Decoding ... ')
     ud_epoch = time.time()
     model.eval()
+    rec_mat = {}
+    label_mat = {}
+    rec_re_mat = {}
+    label_re_mat = {}
+    rec_ridx_mat = {}
+    label_ridx_mat = {}
     with torch.no_grad():
-        for x in valid:
-            for xx in x:  # xx：현재 batch의 데이터 (numpy)
-                print('%d : %s' % (valid_count_idx + 1, valid_uid_list[valid_count_idx]))
-                xx_pad = np.zeros((xx.shape[0], xx.shape[1], xx.shape[2]), dtype='float32')  # (1,height,width)
-                xx_pad[:, :, :] = xx / 255.
-                xx_pad = torch.from_numpy(xx_pad[None, :, :, :]).cuda()
+        valid_count_idx = 0
+        for x, ly, ry, re, ma, lp, rp in valid:
+            for xx, lyy, ree, rpp in zip(x, ly, re, rp):
+                xx_pad = xx.astype(np.float32) / 255.
+                xx_pad = torch.from_numpy(xx_pad[None, :, :, :]).cuda()  # (1,1,H,W)
                 score, sample, malpha_list, relation_sample = \
-                            gen_sample(model, xx_pad, params, gpu_flag=False, k=k, maxlen=maxlen)
-                # sys.exit()
-                if len(score) != 0:
+                    gen_sample(model, xx_pad, params, False, k=k, maxlen=maxlen, rpos_beam=3)
+
+                key = valid_uid_list[valid_count_idx]
+                rec_mat[key] = []
+                label_mat[key] = lyy
+                rec_re_mat[key] = []
+                label_re_mat[key] = ree
+                rec_ridx_mat[key] = []
+                label_ridx_mat[key] = rpp
+                if len(score) == 0:
+                    rec_mat[key].append(0)
+                    rec_re_mat[key].append(0)  # End
+                    rec_ridx_mat[key].append(0)
+                else:
                     score = score / np.array([len(s) for s in sample])
-                    # relation_score = relation_score / np.array([len(r) for r in relation_sample])
                     min_score_index = score.argmin()
                     ss = sample[min_score_index]
                     rs = relation_sample[min_score_index]
                     mali = malpha_list[min_score_index]
-                    fpp_sample = open(valid_out_path+valid_uid_list[valid_count_idx]+'.txt','w')
-                    file_malpha_sample = valid_malpha_path+valid_uid_list[valid_count_idx]+'_malpha.txt'
                     for i, [vv, rv] in enumerate(zip(ss, rs)):
                         if vv == 0:
-                            string = worddicts_r[vv] + '\tEnd\n'
-                            fpp_sample.write(string)
+                            rec_mat[key].append(vv)
+                            rec_re_mat[key].append(0)  # End
                             break
                         else:
                             if i == 0:
-                                string = worddicts_r[vv] + '\tStart\n'
+                                rec_mat[key].append(vv)
+                                rec_re_mat[key].append(6)  # Start
                             else:
-                                string = worddicts_r[vv] + '\t' + reworddicts_r[rv] + '\n'
-                            fpp_sample.write(string)
-                    np.savetxt(file_malpha_sample, np.array(mali))
-                    fpp_sample.close()
-                valid_count_idx=valid_count_idx+1
+                                rec_mat[key].append(vv)
+                                rec_re_mat[key].append(rv)
+                    ma_idx_list = np.array(mali).astype(np.int64)
+                    ma_idx_list[-1] = int(len(ma_idx_list) - 1)
+                    rec_ridx_mat[key] = ma_idx_list
+                valid_count_idx = valid_count_idx + 1
+
+            print('{}/{}-th test data processed !!!'.format(valid_count_idx, len(valid_uid_list)))
+
     print('test set decode done')
     ud_epoch = (time.time() - ud_epoch) / 60.
     print('epoch cost time ... ', ud_epoch)
 
-    # valid_result = [result_wer, result_exprate]
-    # os.system('python compute_sym_re_ridx_cer.py ' + valid_out_path + ' ' + valid_malpha_path + ' ' + label_path + ' ' + valid_result[0])
-    # fpp=open(valid_result[0])
-    # lines = fpp.readlines()
-    # fpp.close()
-    # part1 = lines[-3].split()
-    # if part1[0] == 'CER':
-    #     valid_cer=100. * float(part1[1])
-    # else:
-    #     print ('no CER result')
-    # part2 = lines[-2].split()
-    # if part2[0] == 'reCER':
-    #     valid_recer=100. * float(part2[1])
-    # else:
-    #     print ('no reCER result')
-    # part3 = lines[-1].split()
-    # if part3[0] == 'ridxCER':
-    #     valid_ridxcer=100. * float(part3[1])
-    # else:
-    #     print ('no ridxCER result')
-    # os.system('python evaluate_ExpRate2.py ' + valid_out_path + ' ' + valid_malpha_path + ' ' + label_path + ' ' + valid_result[1])
-    # fpp=open(valid_result[1])
-    # exp_lines = fpp.readlines()
-    # fpp.close()
-    # parts = exp_lines[0].split()
-    # if parts[0] == 'ExpRate':
-    #     valid_exprate = float(parts[1])
-    # else:
-    #     print ('no ExpRate result')
-    # print ('ExpRate: %.2f%%' % (valid_exprate))
-    # print ('Valid CER: %.2f%%, relation_CER: %.2f%%, rpos_CER: %.2f%%, ExpRate: %.2f%%' % (valid_cer,valid_recer,valid_ridxcer,valid_exprate))
+    # Evalute perf.
+    valid_cer_out = compute_wer(rec_mat, label_mat)
+    valid_cer = 100. * valid_cer_out[0]
+    valid_recer_out = compute_wer(rec_re_mat, label_re_mat)
+    valid_recer = 100. * valid_recer_out[0]
+    valid_ridxcer_out = compute_wer(rec_ridx_mat, label_ridx_mat)
+    valid_ridxcer = 100. * valid_ridxcer_out[0]
+    valid_exprate = compute_sacc(rec_mat, label_mat, rec_ridx_mat, label_ridx_mat, rec_re_mat, label_re_mat,
+                                 worddicts_r, reworddicts_r)
+    valid_exprate = 100. * valid_exprate
+    print('Valid CER: %.2f%%, relation_CER: %.2f%%, rpos_CER: %.2f%%, ExpRate: %.2f%%'
+        % (valid_cer, valid_recer, valid_ridxcer, valid_exprate))
+
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_type", required=True, choices=['CROHME', '20K', 'MATHFLAT'], help="dataset type")
+    parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
+    parser.add_argument('--maxlen', type=int, default=200, help='maximum-label-length')
     parser.add_argument('--k', type=int, default=10)
     parser.add_argument("--model_path", default="../train/models/210418/WAP_params_last.pkl", type=str, help="pretrain model path")
     parser.add_argument("--dictionary_target", default="../data/CROHME/dictionary.txt", type=str, help="dictionary of target class")
     parser.add_argument("--dictionary_retarget", default="../data/CROHME/relation_dictionary.txt", type=str, help="dictionary of relation target class")
     parser.add_argument("--fea", default="../data/CROHME/image/offline-test.pkl", type=str, help="image feature file")
     parser.add_argument("--output_path", default="../test/", type=str, help="test result path")
+
+    """ Model Architecture """
+    parser.add_argument('--K', type=int, default=106, help='number of character label')  # 112
+    parser.add_argument('--Kre', type=int, default=8, help='number of character relation')
 
     args = parser.parse_args(argv)
 
@@ -344,7 +359,9 @@ if __name__ == "__main__":
     if len(sys.argv) == 1:
         if SELF_TEST_:
             sys.argv.extend(["--dataset_type", DATASET_TYPE])
-            sys.argv.extend(["--k", '10'])
+            sys.argv.extend(["--batch_size", '8'])
+            sys.argv.extend(["--K", '112'])
+            sys.argv.extend(["--k", '3'])
             sys.argv.extend(["--model_path", '../train/models/210418/WAP_params_last.pkl'])
             sys.argv.extend(["--dictionary_target", '../data/CROHME/dictionary.txt'])
             sys.argv.extend(["--dictionary_retarget", '../data/CROHME/relation_dictionary.txt'])
