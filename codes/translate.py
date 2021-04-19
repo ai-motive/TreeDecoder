@@ -2,20 +2,19 @@ import argparse
 import copy
 import numpy as np
 import os
-import re
 import time
 import sys
-
 import torch
-
 from data_iterator import dataIterator, dataIterator_test
 from encoder_decoder import Encoder_Decoder
+from datetime import datetime
 
 
 # Note:
 #   here model means Encoder_Decoder -->  WAP_model
 #   x means a sample not a batch(or batch_size = 1),and x's shape should be (1,1,H,W),type must be Variable
 #   live_k is just equal to k -dead_k(except the begin of sentence:live_k = 1,dead_k = 0,so use k-dead_k to represent the number of alive paths in beam search)
+
 
 def gen_sample(model, x, params, gpu_flag, k=1, maxlen=30, rpos_beam=3):
     
@@ -196,7 +195,9 @@ def load_dict(dictFile):
     return lexicon
 
 
-def main(model_path, dictionary_target, dictionary_retarget, fea, output_path, k=5):
+def main(args):
+    model_path, dictionary_target, dictionary_retarget, fea, output_path, k =\
+        args.model_path, args.dictionary_target, args.dictionary_retarget, args.fea, args.output_path, args.k
     # set parameters
     params = {}
     params['n'] = 256
@@ -239,13 +240,14 @@ def main(model_path, dictionary_target, dictionary_retarget, fea, output_path, k
 
     # change model's mode to eval
     model.eval()
+    model_date = datetime.today().strftime("%y%m%d")
 
-    valid_out_path = output_path + 'symbol_relation/'
-    valid_malpha_path = output_path + 'memory_alpha/'
+    valid_out_path = os.path.join(output_path, model_date, 'symbol_relation/')
+    valid_malpha_path = os.path.join(output_path, model_date, 'memory_alpha/')
     if not os.path.exists(valid_out_path):
-        os.mkdir(valid_out_path)
+        os.makedirs(valid_out_path)
     if not os.path.exists(valid_malpha_path):
-        os.mkdir(valid_malpha_path)
+        os.makedirs(valid_malpha_path)
     valid_count_idx = 0
     print('Decoding ... ')
     ud_epoch = time.time()
@@ -319,17 +321,36 @@ def main(model_path, dictionary_target, dictionary_retarget, fea, output_path, k
     # print ('ExpRate: %.2f%%' % (valid_exprate))
     # print ('Valid CER: %.2f%%, relation_CER: %.2f%%, rpos_CER: %.2f%%, ExpRate: %.2f%%' % (valid_cer,valid_recer,valid_ridxcer,valid_exprate))
 
+def parse_arguments(argv):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset_type", required=True, choices=['CROHME', '20K', 'MATHFLAT'], help="dataset type")
+    parser.add_argument('--k', type=int, default=10)
+    parser.add_argument("--model_path", default="../train/models/210418/WAP_params_last.pkl", type=str, help="pretrain model path")
+    parser.add_argument("--dictionary_target", default="../data/CROHME/dictionary.txt", type=str, help="dictionary of target class")
+    parser.add_argument("--dictionary_retarget", default="../data/CROHME/relation_dictionary.txt", type=str, help="dictionary of relation target class")
+    parser.add_argument("--fea", default="../data/CROHME/image/offline-test.pkl", type=str, help="image feature file")
+    parser.add_argument("--output_path", default="../test/", type=str, help="test result path")
+
+    args = parser.parse_args(argv)
+
+    return args
+
+
+SELF_TEST_ = True
+DATASET_TYPE = 'CROHME' # CROHME / 20K / MATHFLAT(TODO)
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-k', type=int, default=10)
-    parser.add_argument('model_path', type=str)
-    parser.add_argument('dictionary_target', type=str)
-    parser.add_argument('dictionary_retarget', type=str)
-    parser.add_argument('fea', type=str)
-    parser.add_argument('output_path', type=str)
+    if len(sys.argv) == 1:
+        if SELF_TEST_:
+            sys.argv.extend(["--dataset_type", DATASET_TYPE])
+            sys.argv.extend(["--k", '10'])
+            sys.argv.extend(["--model_path", '../train/models/210418/WAP_params_last.pkl'])
+            sys.argv.extend(["--dictionary_target", '../data/CROHME/dictionary.txt'])
+            sys.argv.extend(["--dictionary_retarget", '../data/CROHME/relation_dictionary.txt'])
+            sys.argv.extend(["--fea", '../data/CROHME/image/offline-test.pkl'])
+            sys.argv.extend(["--output_path", '../test/'])
+        else:
+            sys.argv.extend(["--help"])
 
-    args = parser.parse_args()
-
-    main(args.model_path, args.dictionary_target, args.dictionary_retarget, args.fea, 
-        args.output_path, k=args.k)
+    main(parse_arguments(sys.argv[1:]))

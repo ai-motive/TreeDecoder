@@ -1,16 +1,14 @@
 #!/usr/bin/env python
-
+import argparse
 import os
 import sys
 import pickle as pkl
 import numpy
-# from scipy.misc import imread, imresize, imsave
 
 
-def gen_gtd_label():
-
-    bfs1_path = '../data/'
-    gtd_root_path = '../data/'
+def gen_gtd_label(args):
+    gtd_root_path = '../data/{}/caption/'.format(args.dataset_type)
+    bfs1_path = '../data/{}/caption/'.format(args.dataset_type)
     gtd_paths = ['train_caption', 'test_caption']
 
     for gtd_path in gtd_paths:
@@ -53,10 +51,9 @@ def gen_gtd_label():
         out_label_fp.close()
 
 
-def gen_gtd_align():
-
-    bfs1_path = '../data/'
-    gtd_root_path = '../data/'
+def gen_gtd_align(args):
+    gtd_root_path = '../data/{}/caption/'.format(args.dataset_type)
+    bfs1_path = '../data/{}/caption/'.format(args.dataset_type)
     gtd_paths = ['train_caption', 'test_caption']
     
     for gtd_path in gtd_paths:
@@ -98,6 +95,30 @@ def gen_gtd_align():
         print ('save file done')
         out_label_fp.close()
 
+def main(args):
+    gen_gtd_label(args)
+    gen_gtd_align(args)
+    return True
+
+def parse_arguments(argv):
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--dataset_type", required=True, choices=['CROHME', '20K', 'MATHFLAT'], help="dataset type")
+
+    args = parser.parse_args(argv)
+
+    return args
+
+
+SELF_TEST_ = True
+DATASET_TYPE = 'CROHME' # CROHME / 20K / MATHFLAT(TODO)
+
+
 if __name__ == '__main__':
-    gen_gtd_label()
-    gen_gtd_align()
+    if len(sys.argv) == 1:
+        if SELF_TEST_:
+            sys.argv.extend(["--dataset_type", DATASET_TYPE])
+        else:
+            sys.argv.extend(["--help"])
+
+    main(parse_arguments(sys.argv[1:]))

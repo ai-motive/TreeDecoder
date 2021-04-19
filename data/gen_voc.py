@@ -1,5 +1,11 @@
+import argparse
 import sys
 import os
+
+
+_this_folder_ = os.path.dirname(os.path.abspath(__file__))
+_this_basename_ = os.path.splitext(os.path.basename(__file__))[0]
+
 
 def gen_voc(infile, vocfile):
     vocab=set()
@@ -20,15 +26,35 @@ def gen_voc(infile, vocfile):
         fout.write('<s>\t{}\n'.format(len(vocab)+1))
         fout.write('</s>\t0\n')
 
+    return True
 
-dataset_type = '20K'    # CHROHME / 20K
+def main(args):
+    cation_path = os.path.join(_this_folder_, args.dataset_type, 'caption', 'total_caption.txt')
+    dict_path = os.path.join(_this_folder_, args.dataset_type, 'dictionary.txt')
+    gen_ = gen_voc(cation_path, dict_path)
+    if gen_:
+        print("Generated dictonary : {}".format(dict_path))
+    return True
+
+def parse_arguments(argv):
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--dataset_type", required=True, choices=['CROHME', '20K', 'MATHFLAT'], help="dataset type")
+
+    args = parser.parse_args(argv)
+
+    return args
+
+
+SELF_TEST_ = True
+DATASET_TYPE = 'CROHME' # CROHME / 20K / MATHFLAT(TODO)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        cation_path = os.path.join(dataset_type, 'total_caption.txt')
-        dict_path = os.path.join(dataset_type, 'dictionary.txt')
-        gen_voc(cation_path, dict_path)
-        sys.exit(0)
-    else:
-        gen_voc(sys.argv[1], sys.argv[2])
+    if len(sys.argv) == 1:
+        if SELF_TEST_:
+            sys.argv.extend(["--dataset_type", DATASET_TYPE])
+        else:
+            sys.argv.extend(["--help"])
+
+    main(parse_arguments(sys.argv[1:]))
