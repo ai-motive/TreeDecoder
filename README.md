@@ -31,4 +31,4 @@ Preprocessing of test set. (.pkl)
 `python codes/train_wap.py --dataset_type CROHME`
 
 ### 6. Testing model
-`python codes/translate.py --dataset_type CROHME --k 3 --model_path ../train/models/210418/WAP_params_last.pkl --dictionary_target ../data/CROHME/dictionary.txt --dictionary_retarget ../data/CROHME/relation_dictionary.txt --fea ../data/CROHME/image/offline-test.pkl --output_path ../test/`
+`python codes/translate.py --dataset_type CROHME --batch_size 8 --K 112 --k 3 --model_path ../train/models/210418/WAP_params_last.pkl --dictionary_target ../data/CROHME/dictionary.txt --dictionary_retarget ../data/CROHME/relation_dictionary.txt --fea ../data/CROHME/image/offline-test.pkl --output_path ../test/`
