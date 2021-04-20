@@ -10,7 +10,7 @@ from utils import load_dict, prepare_data, gen_sample, weight_init, compute_wer,
 from encoder_decoder import Encoder_Decoder
 from data_iterator import dataIterator
 from datetime import datetime
-from common.general_utils import folder_exists, get_filenames
+from utility.general_utils import folder_exists, get_filenames
 
 
 def main(args):
