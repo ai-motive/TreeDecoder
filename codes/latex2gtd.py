@@ -73,8 +73,8 @@ def main(args):
                 if '\sqrt [' in line:
                     continue
 
-                if '\left' not in line: ##
-                    continue
+                # if '\left' not in line: ##
+                #     continue
                 # if '\sqrt' not in line: ##
                 #     continue
                 # if '7t810ogfp0169hji_p_crop_004' not in line: ##
@@ -239,9 +239,11 @@ def main(args):
                             # } }
                             if cap[idx - 1] == '}':
                                 del (gtd_stack[-1])
+
+                            if gtd_stack:
                                 idx += 1
 
-                            # @ { 의 모든 조건 검사후
+                            # @ } 의 모든 조건 검사후
                             else:
                                 parts = string.split('\t')
                                 string = cap[idx] + '\t' + str(outidx) + '\t' + \

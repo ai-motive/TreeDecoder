@@ -4,6 +4,7 @@ import os
 import sys
 import pickle as pkl
 import numpy
+from latex2gtd import split_string_to_latex_symbols, ARRAY_SYMBOLS, LATEX_SYMBOLS
 
 
 _this_folder_ = os.path.dirname(os.path.abspath(__file__))
@@ -23,40 +24,52 @@ def convert(nodeid, gtd_list):
         if gtd_list[nodeid][0] == '\\frac':
             return_string = [gtd_list[nodeid][0]]
             for i in range(len(child_list)):
-                if child_list[i][2] == 'Above':
-                    return_string += ['{'] + convert(child_list[i][1], gtd_list) + ['}']
+                idx, re = child_list[i][1], child_list[i][2]
+                if re == 'Above':
+                    return_string += ['{'] + convert(idx, gtd_list) + ['}']
             for i in range(len(child_list)):
-                if child_list[i][2] == 'Below':
-                    return_string += ['{'] + convert(child_list[i][1], gtd_list) + ['}']
+                idx, re = child_list[i][1], child_list[i][2]
+                if re == 'Below':
+                    return_string += ['{'] + convert(idx, gtd_list) + ['}']
             for i in range(len(child_list)):
-                if child_list[i][2] == 'Right':
-                    return_string += convert(child_list[i][1], gtd_list)
+                idx, re = child_list[i][1], child_list[i][2]
+                if re == 'Right':
+                    return_string += convert(idx, gtd_list)
             for i in range(len(child_list)):
-                if child_list[i][2] not in ['Right','Above','Below']:
+                idx, re = child_list[i][1], child_list[i][2]
+                if re not in ['Right','Above','Below']:
                     return_string += ['illegal']
         else:
+            # TODO : \begin{array} 예외처리 적용
             return_string = [gtd_list[nodeid][0]]
             for i in range(len(child_list)):
-                if child_list[i][2] == 'Inside':
-                    return_string += ['{'] + convert(child_list[i][1], gtd_list) + ['}']
+                idx, re = child_list[i][1], child_list[i][2]
+                if re == 'Inside':
+                    return_string += ['{'] + convert(idx, gtd_list) + ['}']
             for i in range(len(child_list)):
-                if child_list[i][2] in ['Sub','Below']:
-                    return_string += ['_','{'] + convert(child_list[i][1], gtd_list) + ['}']
+                idx, re = child_list[i][1], child_list[i][2]
+                if re in ['Sub','Below']:
+                    return_string += ['_','{'] + convert(idx, gtd_list) + ['}']
             for i in range(len(child_list)):
-                if child_list[i][2] in ['Sup','Above']:
-                    return_string += ['^','{'] + convert(child_list[i][1], gtd_list) + ['}']
+                idx, re = child_list[i][1], child_list[i][2]
+                if re in ['Sup','Above']:
+                    return_string += ['^','{'] + convert(idx, gtd_list) + ['}']
             for i in range(len(child_list)):
-                if child_list[i][2] in ['Right']:
-                    return_string += convert(child_list[i][1], gtd_list)
+                idx, re = child_list[i][1], child_list[i][2]
+                if re in ['Right']:
+                    return_string += convert(idx, gtd_list)
+
         return return_string
 
 def main(args):
-    gtd_root_path = '../data/{}/'.format(args.dataset_type)
-    latex_root_path = '../data/{}/'.format(args.dataset_type)
+    print('Dataset type : {}'.format(args.dataset_type))
+    gtd_root_path = args.gtd_root_path
+    latex_root_path = args.latex_root_path
 
-    gtd_paths = ['caption/train_caption', 'caption/test_caption']
+    gtd_paths = ['gtd']
     for gtd_path in gtd_paths:
         gtd_files = os.listdir(gtd_root_path + gtd_path + '/')
+        gtd_files = sorted(gtd_files)
         f_out = open(latex_root_path + gtd_path + '.txt', 'w')
         for process_num, gtd_file in enumerate(gtd_files):
             # gtd_file = '510_em_101.gtd'
@@ -64,6 +77,9 @@ def main(args):
             f_out.write(key + '\t')
             gtd_list = []
             gtd_list.append(['<s>',0,-1,'root'])
+
+            # if '7ubeci9854eixs9c_p_crop_004' not in key:
+            #     continue
             with open(gtd_root_path + gtd_path + '/' + gtd_file) as f:
                 lines = f.readlines()
                 for line in lines[:-1]:
@@ -72,15 +88,33 @@ def main(args):
                     childid = int(parts[1])
                     parentid = int(parts[3])
                     relation = parts[4]
-                    gtd_list.append([sym,childid,parentid,relation])
+                    gtd_list.append([sym, childid, parentid, relation])
+
             latex_list = convert(1, gtd_list)
+
             if 'illegal' in latex_list:
                 print (key + ' has error')
                 latex_string = ' '
             else:
                 latex_string = ' '.join(latex_list)
-            f_out.write(latex_string + '\n')
+
+            if args.dataset_type == 'CROHME':
+                out_string = latex_string + '\n'
+            elif args.dataset_type == 'MATHFLAT':
+                strip_latex = latex_string
+
+                if strip_latex[:2] == '{}':
+                    strip_latex = strip_latex[2:]
+
+                latex_parts = split_string_to_latex_symbols(strip_latex,
+                                                      latex_symbols=ARRAY_SYMBOLS + LATEX_SYMBOLS)
+                out_string = "".join(latex_parts)
+
+            f_out.write(out_string + '\n')
             # sys.exit()
+
+            print(" [GENERATE_LATEX] # Processing {} ({:d}/{:d}) : {}".format(key, (process_num + 1),
+                                                                              len(lines), latex_string))
 
         if (process_num+1) // 2000 == (process_num+1) * 1.0 / 2000:
             print ('process files', process_num)
@@ -91,6 +125,9 @@ def parse_arguments(argv):
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--dataset_type", required=True, choices=['CROHME', '20K', 'MATHFLAT'], help="dataset type")
+    parser.add_argument("--tgt_mode", required=True, choices=['TRAIN', 'TEST'], help="Target mode")
+    parser.add_argument("--gtd_root_path", default="../data/CROHME/", help="Root path of gtd files")
+    parser.add_argument("--latex_root_path", default="../data/CROHME/", help="Root path of latex files")
 
     args = parser.parse_args(argv)
 
@@ -98,13 +135,17 @@ def parse_arguments(argv):
 
 
 SELF_TEST_ = True
-DATASET_TYPE = 'CROHME' # CROHME / 20K / MATHFLAT(TODO)
+DATASET_TYPE = 'MATHFLAT' # CROHME / 20K / MATHFLAT
+TGT_MODE = 'TRAIN' # TRAIN / TEST
 
 
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         if SELF_TEST_:
             sys.argv.extend(["--dataset_type", DATASET_TYPE])
+            sys.argv.extend(["--tgt_mode", TGT_MODE])
+            sys.argv.extend(["--gtd_root_path", "/HDD/Datasets/mathflat_problems/Output_supervisely_V4.1/20000_29999/train/tree_math_gt/"])
+            sys.argv.extend(["--latex_root_path", "/HDD/Datasets/mathflat_problems/Output_supervisely_V4.1/20000_29999/train/tree_math_gt/latex/"])
         else:
             sys.argv.extend(["--help"])
 
