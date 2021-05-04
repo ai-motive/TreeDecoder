@@ -40,7 +40,6 @@ def convert(nodeid, gtd_list):
                 if re not in ['Right','Above','Below']:
                     return_string += ['illegal']
         else:
-            # TODO : \begin{array} 예외처리 적용
             return_string = [gtd_list[nodeid][0]]
             for i in range(len(child_list)):
                 idx, re = child_list[i][1], child_list[i][2]
@@ -78,8 +77,9 @@ def main(args):
             gtd_list = []
             gtd_list.append(['<s>',0,-1,'root'])
 
-            # if '7ubeci9854eixs9c_p_crop_004' not in key:
+            # if '7uo72ow1frx686al_p_crop_007' not in key:
             #     continue
+
             with open(gtd_root_path + gtd_path + '/' + gtd_file) as f:
                 lines = f.readlines()
                 for line in lines[:-1]:
@@ -111,7 +111,6 @@ def main(args):
                 out_string = "".join(latex_parts)
 
             f_out.write(out_string + '\n')
-            # sys.exit()
 
             print(" [GENERATE_LATEX] # Processing {} ({:d}/{:d}) : {}".format(key, (process_num + 1),
                                                                               len(lines), latex_string))
