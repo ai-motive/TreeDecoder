@@ -5,7 +5,7 @@ import sys
 import _pickle as pkl
 import numpy
 from scipy.misc import imread, imresize, imsave
-from common.general_utils import folder_exists, concat_text_files
+from utility.general_utils import folder_exists, file_exists, concat_text_files
 
 
 _this_folder_ = os.path.dirname(os.path.abspath(__file__))
@@ -13,70 +13,69 @@ _this_basename_ = os.path.splitext(os.path.basename(__file__))[0]
 
 
 def main(args):
-    op_modes = args.op_mode.split('_')
-    txt_fnames = []
-    for op_mode in op_modes:
-        lower_op_mode = op_mode.lower()
-        image_path = './{}/image/off_image_{}/'.format(args.dataset_type, lower_op_mode)
-        caption_path = os.path.join(_this_folder_, args.dataset_type, 'caption', lower_op_mode+'_caption.txt')
-        txt_fnames.append(caption_path)
+    op_mode = args.op_mode
+    caption_path = args.cptn_path
+    image_path = args.crop_path
+    image_pkl_path = args.img_pkl_path
 
-        scpFile = open(caption_path)
-        outFile = os.path.join(_this_folder_, args.dataset_type, 'offline-{}.pkl'.format(lower_op_mode))
-        oupFp_feature = open(outFile, 'wb')
+    scpFile = open(caption_path)
+    outFile = image_pkl_path
+    oupFp_feature = open(outFile, 'wb')
 
-        features = {}
-        sentNum = 0
+    features = {}
+    sentNum = 0
 
-        while 1:
-            line = scpFile.readline().strip()  # remove the '\r\n'
-            if not line:
-                break
-            else:
-                key = line.split('\t')[0]
-                if args.dataset_type == 'CROHME':
-                    ext = '.bmp'
-                    image_file = image_path + key + '_' + str(0) + ext
+    while 1:
+        line = scpFile.readline().strip()  # remove the '\r\n'
+        if not line:
+            break
+        else:
+            key = line.split('\t')[0]
+            if args.dataset_type == 'CROHME':
+                ext = '.bmp'
+                image_file = image_path + key + '_' + str(0) + ext
+            elif args.dataset_type == '20K':
+                ext = '.png'
+                image_file = image_path + key + ext
+            elif args.dataset_type == 'MATHFLAT':
+                ext = '.jpg'
+                image_file = image_path + key + ext
 
-                elif args.dataset_type == '20K':
-                    ext = '.png'
-                    image_file = image_path + key + ext
-
+            image_file_ = file_exists(image_file)
+            if not(image_file_):
+                continue
+            im = imread(image_file)
+            channels = 1 if len(im.shape) == 2 else 3
+            mat = numpy.zeros([channels, im.shape[0], im.shape[1]], dtype='uint8')
+            for channel in range(channels):
+                # image_file = image_path + key + '_' + str(channel) + ext
                 im = imread(image_file)
-                channels = 1 if len(im.shape) == 2 else 3
-                mat = numpy.zeros([channels, im.shape[0], im.shape[1]], dtype='uint8')
-                for channel in range(channels):
-                    # image_file = image_path + key + '_' + str(channel) + ext
-                    im = imread(image_file)
-                    if len(im.shape) == 2:
-                        mat[channel, :, :] = im
-                    else:
-                        mat[channel, :, :] = im[:, :, channel]
+                if len(im.shape) == 2:
+                    mat[channel, :, :] = im
+                else:
+                    mat[channel, :, :] = im[:, :, channel]
 
-                sentNum = sentNum + 1
-                features[key] = mat
-                if sentNum / 500 == sentNum * 1.0 / 500:
-                    print('process sentences ', sentNum)
+            sentNum = sentNum + 1
+            features[key] = mat
+            if sentNum / 500 == sentNum * 1.0 / 500:
+                print('process sentences ', sentNum)
 
-        print('load images done. sentence number ', sentNum)
+    print(f'load {op_mode} images done. sentence number ', sentNum)
 
-        pkl.dump(features, oupFp_feature)
-        print('Op_mode : {}, save file done'.format(args.op_mode))
-        oupFp_feature.close()
+    pkl.dump(features, oupFp_feature)
+    print('Op_mode : {}, save file done'.format(args.op_mode))
+    oupFp_feature.close()
 
-    if args.op_mode == 'TRAIN_TEST':
-        rst_fname = os.path.join(_this_folder_, args.dataset_type, 'caption', 'total_caption.txt')
-        concat_ = concat_text_files(txt_fnames=txt_fnames, rst_fname=rst_fname)
-        if concat_:
-            print('Generated total_caption.txt')
-    
     return True
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--dataset_type", required=True, choices=['CROHME', '20K', 'MATHFLAT'], help="dataset type")
-    parser.add_argument("--op_mode", required=True, choices=['TRAIN', 'TEST', 'TRAIN_TEST'], help="operation mode")
+    parser.add_argument("--op_mode", required=True, choices=['TRAIN', 'TEST'], help="operation mode")
+    parser.add_argument("--cptn_path", required=True, help="Root caption path")
+    parser.add_argument("--crop_path", required=True, help="Root crop image path")
+    parser.add_argument("--img_pkl_path", required=True, help="Root crop image pickle path")
     
     args = parser.parse_args(argv)
 
@@ -84,8 +83,8 @@ def parse_arguments(argv):
 
 
 SELF_TEST_ = True
-DATASET_TYPE = 'CROHME' # CROHME / 20K / MATHFLAT(TODO)
-OP_MODE = 'TRAIN_TEST'
+DATASET_TYPE = 'MATHFLAT' # CROHME / 20K / MATHFLAT
+OP_MODE = 'TRAIN'
 
 
 if __name__ == "__main__":

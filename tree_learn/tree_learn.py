@@ -7,7 +7,8 @@ import subprocess
 from utility import general_utils as utils
 from utility.str_utils import replace_string_from_dict
 from utility import multi_process
-from codes import latex2gtd
+from codes import latex2gtd, prepare_label
+from data import gen_pkl
 
 
 _this_folder_ = os.path.dirname(os.path.abspath(__file__))
@@ -98,7 +99,7 @@ def main_generate_gtd(ini, common_info, logger=None):
     """
         train_cptn_path, test_cptn_path 파일을 gtd로 변환하여
         train_gtd_path, test_gtd_path에 저장한다.
-        """
+    """
 
     # Init. path variables
     for key, val in ini.items():
@@ -130,27 +131,42 @@ def main_generate_gtd(ini, common_info, logger=None):
 
     return True
 
-def main_crop(ini, model_dir=None, logger=None):
-    craft_train_list = sorted(utils.get_filenames(ini['craft_train_path'], extensions=utils.TEXT_EXTENSIONS))
-    craft_test_list = sorted(utils.get_filenames(ini['craft_test_path'], extensions=utils.TEXT_EXTENSIONS))
+def main_crop(ini, common_info, logger=None):
+    """
+        {COMMON_DIR}의 이미지를 crop하여
+        train_crop_path, test_crop_path에 저장한다.
+    """
+
+    # Init. path variables
+    craft_train_path, craft_test_path = replace_string_from_dict(ini['craft_train_path'], common_info), replace_string_from_dict(ini['craft_test_path'], common_info)
+    train_img_path, test_img_path = replace_string_from_dict(ini['train_img_path'], common_info), replace_string_from_dict(ini['test_img_path'], common_info)
+    train_crop_path, test_crop_path = replace_string_from_dict(ini['train_crop_path'], common_info), replace_string_from_dict(ini['test_crop_path'], common_info)
+
+    save_info = {
+        'train_img_path' : train_img_path, 'test_img_path' : test_img_path,
+        'train_crop_path' : train_crop_path, 'test_crop_path' : test_crop_path,
+    }
+
+    craft_train_list = sorted(utils.get_filenames(craft_train_path, extensions=utils.TEXT_EXTENSIONS))
+    craft_test_list = sorted(utils.get_filenames(craft_test_path, extensions=utils.TEXT_EXTENSIONS))
     logger.info(" [CRAFT-TRAIN GT] # Total gt number to be processed: {:d}.".format(len(craft_train_list)))
 
     for craft_list in [craft_train_list, craft_test_list]:
         if craft_list is craft_train_list:
-            tar_mode = 'TRAIN'
+            tgt_mode = 'TRAIN'
         elif craft_list is craft_test_list:
-            tar_mode = 'TEST'
+            tgt_mode = 'TEST'
 
         available_cpus = len(os.sched_getaffinity(0))
-        mp_inputs = [(craft_fpath, ini, tar_mode) for file_idx, craft_fpath in enumerate(craft_list)]
+        mp_inputs = [(craft_fpath, save_info, tgt_mode) for file_idx, craft_fpath in enumerate(craft_list)]
 
         # Multiprocess func.
         multi_process.run(func=load_craft_gt_and_save_crop_images, data=mp_inputs,
-                          n_workers=available_cpus, n_tasks=len(craft_list), max_queue_size=len(craft_list))
+                          n_workers=available_cpus, n_tasks=len(craft_list), max_queue_size=len(craft_list), logger=logger)
 
     return True
 
-def load_craft_gt_and_save_crop_images(craft_fpath, ini, tar_mode, print_=False):
+def load_craft_gt_and_save_crop_images(craft_fpath, save_info, tar_mode, print_=False):
     # load craft gt. file
     with open(craft_fpath, "r", encoding="utf8") as f:
         craft_infos = f.readlines()
@@ -163,12 +179,12 @@ def load_craft_gt_and_save_crop_images(craft_fpath, ini, tar_mode, print_=False)
             img_fname = core_name.replace('gt_', '')
 
             if tar_mode == 'TRAIN':
-                raw_img_path = os.path.join(ini['train_img_path'], img_fname + '.jpg')
-                rst_fpath = os.path.join(ini['train_crop_path'],
+                raw_img_path = os.path.join(save_info['train_img_path'], img_fname + '.jpg')
+                rst_fpath = os.path.join(save_info['train_crop_path'],
                                          img_fname + '_crop_' + '{0:03d}'.format(tl_idx) + '.jpg')
             elif tar_mode == 'TEST':
-                raw_img_path = os.path.join(ini['test_img_path'], img_fname + '.jpg')
-                rst_fpath = os.path.join(ini['test_crop_path'],
+                raw_img_path = os.path.join(save_info['test_img_path'], img_fname + '.jpg')
+                rst_fpath = os.path.join(save_info['test_crop_path'],
                                          img_fname + '_crop_' + '{0:03d}'.format(tl_idx) + '.jpg')
 
             if not (utils.file_exists(raw_img_path, print_=True)):
@@ -187,27 +203,14 @@ def load_craft_gt_and_save_crop_images(craft_fpath, ini, tar_mode, print_=False)
 
     return True
 
-def main_create(ini, model_dir=None, logger=None):
-    for tar_mode in ['TRAIN', 'TEST']:
-        if tar_mode == 'TRAIN':
-            crop_img_path = os.path.join(ini['train_gt_path'], 'crop_img')
-            gt_fpath = os.path.join(ini['train_gt_path'], 'labels.txt')
-            lmdb_path = os.path.join(ini['train_lmdb_path'])
-        elif tar_mode == 'TEST':
-            crop_img_path = os.path.join(ini['test_gt_path'], 'crop_img')
-            gt_fpath = os.path.join(ini['test_gt_path'], 'labels.txt')
-            lmdb_path = os.path.join(ini['test_lmdb_path'])
+def main_merge(ini, common_info, logger=None):
+    # Init. path variables
+    global src_gt_path, dst_train_gt_path, dst_test_gt_path, src_crop_img_path, dst_crop_img_path, src_gtd_path, dst_gtd_path
+    merge_info = init_merge_ini(ini, common_info)
 
-        logger.info(" [CREATE-{}] # Create lmdb dataset".format(tar_mode))
-        create_lmdb_dataset.createDataset(inputPath=crop_img_path, gtFile=gt_fpath, outputPath=lmdb_path)
+    utils.folder_exists(merge_info['total_dataset_path'], create_=True)
 
-    return True
-
-def main_merge(ini, model_dir=None, logger=None):
-    global src_train_gt_path, src_test_gt_path, dst_train_gt_path, dst_test_gt_path
-    utils.folder_exists(ini['total_dataset_path'], create_=True)
-
-    datasets = [dataset for dataset in os.listdir(ini['dataset_path']) if dataset != 'total']
+    datasets = [dataset for dataset in os.listdir(merge_info['dataset_path']) if dataset != 'total']
     sort_datasets = sorted(datasets, key=lambda x: (int(x.split('_')[0])))
 
     # Process total files
@@ -215,34 +218,39 @@ def main_merge(ini, model_dir=None, logger=None):
     test_gt_text_paths = []
     if len(sort_datasets) != 0:
         for dir_name in sort_datasets:
-            src_train_path, src_test_path = os.path.join(ini['dataset_path'], dir_name, 'train'), os.path.join(ini['dataset_path'], dir_name, 'test')
-            src_train_crop_img_path = os.path.join(src_train_path, 'crnn_gt/crop_img/')
-            src_test_crop_img_path = os.path.join(src_test_path, 'crnn_gt/crop_img/')
+            # Replace {DIR_NAME}
+            for key, val in merge_info.items():
+                merge_info[key] = val.replace('{DIR_NAME}', dir_name)
 
-            dst_train_path, dst_test_path = os.path.join(ini['total_dataset_path'], 'train'), os.path.join(ini['total_dataset_path'], 'test')
-            dst_train_crop_img_path = os.path.join(dst_train_path, 'crnn_gt/crop_img/')
-            dst_test_crop_img_path = os.path.join(dst_test_path, 'crnn_gt/crop_img/')
-
-            if utils.folder_exists(dst_train_crop_img_path) and utils.folder_exists(dst_test_crop_img_path):
-                logger.info(" # Already {} is exist".format(ini['total_dataset_path']))
+            # Check folder exists
+            if utils.folder_exists(merge_info['dst_train_crop_img_path']) and utils.folder_exists(merge_info['dst_test_crop_img_path']):
+                logger.info(" # Already {} crop_img are exist".format(merge_info['total_dataset_path']))
             else:
-                utils.folder_exists(dst_train_crop_img_path, create_=True), utils.folder_exists(dst_test_crop_img_path, create_=True)
+                utils.folder_exists(merge_info['dst_train_crop_img_path'], create_=True), utils.folder_exists(merge_info['dst_test_crop_img_path'], create_=True)
+            if utils.folder_exists(merge_info['dst_train_gtd_path']) and utils.folder_exists(merge_info['dst_test_gtd_path']):
+                logger.info(" # Already {} gtd are exist".format(merge_info['total_dataset_path']))
+            else:
+                utils.folder_exists(merge_info['dst_train_gtd_path'], create_=True), utils.folder_exists(merge_info['dst_test_gtd_path'], create_=True)
 
-            # Apply symbolic link for gt & img path
-            for tar_mode in ['TRAIN', 'TEST']:
-                if tar_mode is 'TRAIN':
-                    src_crop_img_path = src_train_crop_img_path
-                    dst_crop_img_path = dst_train_crop_img_path
-                elif tar_mode is 'TEST':
-                    src_crop_img_path = src_test_crop_img_path
-                    dst_crop_img_path = dst_test_crop_img_path
+            # 1) Apply symbolic link for gtd & img path
+            # 2) Concat gt files
+            for tgt_mode in ['TRAIN', 'TEST']:
+                if tgt_mode is 'TRAIN':
+                    src_gt_path, dst_gt_path = merge_info['src_train_gt_path'], merge_info['dst_train_gt_path']
+                    src_crop_img_path, dst_crop_img_path = merge_info['src_train_crop_img_path'], merge_info['dst_train_crop_img_path']
+                    src_gtd_path, dst_gtd_path = merge_info['src_train_gtd_path'], merge_info['dst_train_gtd_path']
+                elif tgt_mode is 'TEST':
+                    src_gt_path, dst_gt_path = merge_info['src_test_gt_path'], merge_info['dst_test_gt_path']
+                    src_crop_img_path, dst_crop_img_path = merge_info['src_test_crop_img_path'], merge_info['dst_test_crop_img_path']
+                    src_gtd_path, dst_gtd_path = merge_info['src_test_gtd_path'], merge_info['dst_test_gtd_path']
 
-                # link img_path
-                src_crop_imgs = sorted(utils.get_filenames(src_crop_img_path, extensions=utils.IMG_EXTENSIONS))
-                dst_crop_imgs = sorted(utils.get_filenames(dst_crop_img_path, extensions=utils.IMG_EXTENSIONS))
+                # Sort & link img_path
+                src_crop_imgs, dst_crop_imgs = sorted(utils.get_filenames(src_crop_img_path, extensions=utils.IMG_EXTENSIONS)), sorted(utils.get_filenames(dst_crop_img_path, extensions=utils.IMG_EXTENSIONS))
+                src_gtds, dst_gtds = sorted(utils.get_filenames(src_gtd_path, extensions=['gtd'])), sorted(utils.get_filenames(dst_gtd_path, extensions=['gtd']))
 
-                src_crop_fnames = [utils.split_fname(crop_img)[1] for crop_img in src_crop_imgs]
-                dst_crop_fnames = [utils.split_fname(crop_img)[1] for crop_img in dst_crop_imgs]
+                src_crop_fnames, dst_crop_fnames = [utils.split_fname(crop_img)[1] for crop_img in src_crop_imgs], [utils.split_fname(crop_img)[1] for crop_img in dst_crop_imgs]
+                src_gtd_fnames, dst_gtd_fnames = [utils.split_fname(gtd)[1] for gtd in src_gtds], [utils.split_fname(gtd)[1] for gtd in dst_gtds]
+
                 if any(src_fname not in dst_crop_fnames for src_fname in src_crop_fnames):
                     img_sym_cmd = 'find {} -name "*.jpg" -exec ln {} {} \;'.format(src_crop_img_path, '{}', dst_crop_img_path) # link each files
                     # img_sym_cmd = 'ln "{}"* "{}"'.format(src_crop_img_path, dst_crop_img_path)  # argument is long
@@ -250,52 +258,104 @@ def main_merge(ini, model_dir=None, logger=None):
                     logger.info(" # Link img files {} -> {}.".format(src_crop_img_path, dst_crop_img_path))
                 else:
                     logger.info(" # Link img files already generated : {}.".format(dst_crop_img_path))
+                if any(src_fname not in dst_gtd_fnames for src_fname in src_gtd_fnames):
+                    gtd_sym_cmd = 'find {} -name "*.gtd" -exec ln {} {} \;'.format(src_gtd_path, '{}', dst_gtd_path) # link each files
+                    # gtd_sym_cmd = 'ln "{}"* "{}"'.format(src_gtd_path, dst_gtd_path)  # argument is long
+                    subprocess.call(gtd_sym_cmd, shell=True)
+                    logger.info(" # Link gtd files {} -> {}.".format(src_gtd_path, dst_gtd_path))
+                else:
+                    logger.info(" # Link gtd files already generated : {}.".format(dst_gtd_path))
 
-            # Add to list all label files
-            for tar_mode in ['TRAIN', 'TEST']:
-                if tar_mode == 'TRAIN':
-                    src_train_gt_path = os.path.join(src_train_path, 'crnn_gt', 'labels.txt')
-                    train_gt_text_paths.append(src_train_gt_path)
+                # Add to list all label files
+                if tgt_mode == 'TRAIN':
+                    train_gt_text_paths.append(src_gt_path)
+                    dst_train_gt_path = merge_info['dst_train_gt_path']
 
-                    dst_train_gt_path = os.path.join(dst_train_path, 'crnn_gt', 'labels.txt')
-
-                elif tar_mode == 'TEST':
-                    src_test_gt_path = os.path.join(src_test_path, 'crnn_gt', 'labels.txt')
-                    test_gt_text_paths.append(src_test_gt_path)
-
-                    dst_test_gt_path = os.path.join(dst_test_path, 'crnn_gt', 'labels.txt')
+                elif tgt_mode == 'TEST':
+                    test_gt_text_paths.append(src_gt_path)
+                    dst_test_gt_path = merge_info['dst_test_gt_path']
 
         logger.info(" # Train gt paths : {}".format(train_gt_text_paths))
         logger.info(" # Test gt paths : {}".format(test_gt_text_paths))
 
         # Merge all label files
-        with open(dst_train_gt_path, 'w') as outfile:
-            for fpath in train_gt_text_paths:
-                with open(fpath) as infile:
-                    for line in infile:
-                        outfile.write(line)
-
-        with open(dst_test_gt_path, 'w') as outfile:
-            for fpath in test_gt_text_paths:
-                with open(fpath) as infile:
-                    for line in infile:
-                        outfile.write(line)
+        utils.concat_text_files(train_gt_text_paths, dst_train_gt_path)
+        utils.concat_text_files(test_gt_text_paths, dst_test_gt_path)
 
         logger.info(" # Train & Test gt files are merged !!!")
 
-        for tar_mode in ['TRAIN', 'TEST']:
-            logger.info(" [CREATE-{}] # Create lmdb dataset".format(tar_mode))
-            if tar_mode == 'TRAIN':
-                crop_img_path = dst_train_crop_img_path
-                gt_fpath = dst_train_gt_path
-                lmdb_path = ini['total_train_lmdb_path']
-            elif tar_mode == 'TEST':
-                crop_img_path = dst_test_crop_img_path
-                gt_fpath = dst_test_gt_path
-                lmdb_path = ini['total_test_lmdb_path']
+    return True
 
-            create_lmdb_dataset.createDataset(inputPath=crop_img_path, gtFile=gt_fpath, outputPath=lmdb_path)
-        logger.info(" [CREATE-ALL] # Create all lmdb dataset")
+def init_merge_ini(ini, common_info):
+    dataset_path = replace_string_from_dict(ini['dataset_path'], common_info)
+    total_dataset_path = replace_string_from_dict(ini['total_dataset_path'], common_info)
+    base_dir_name = common_info['base_dir_name']
+
+    src_train_path, src_test_path = os.path.join(dataset_path, '{DIR_NAME}', 'train'), os.path.join(dataset_path, '{DIR_NAME}', 'test')
+    dst_train_path, dst_test_path = os.path.join(total_dataset_path, 'train'), os.path.join(total_dataset_path, 'test')
+
+    src_train_gt_path, src_test_gt_path = os.path.join(src_train_path, f'{base_dir_name}', 'train_caption.txt'), os.path.join(src_test_path, f'{base_dir_name}', 'test_caption.txt')
+    dst_train_gt_path, dst_test_gt_path = os.path.join(dst_train_path, f'{base_dir_name}', 'train_caption.txt'), os.path.join(src_test_path, f'{base_dir_name}', 'test_caption.txt')
+
+    src_train_crop_img_path, src_test_crop_img_path = os.path.join(src_train_path, f'{base_dir_name}', 'crop_img/'), os.path.join(src_test_path, f'{base_dir_name}', 'crop_img/')
+    dst_train_crop_img_path, dst_test_crop_img_path = os.path.join(dst_train_path, f'{base_dir_name}', 'crop_img/'), os.path.join(dst_test_path, f'{base_dir_name}', 'crop_img/')
+
+    src_train_gtd_path, src_test_gtd_path = os.path.join(src_train_path, f'{base_dir_name}', 'gtd/'), os.path.join(src_test_path, f'{base_dir_name}', 'gtd/')
+    dst_train_gtd_path, dst_test_gtd_path = os.path.join(dst_train_path, f'{base_dir_name}', 'gtd/'), os.path.join(dst_test_path, f'{base_dir_name}', 'gtd/')
+
+    merge_info = {
+        'dataset_path' : dataset_path, 'total_dataset_path' : total_dataset_path, 'base_dir_name' : base_dir_name,
+        'src_train_path' : src_train_path, 'src_test_path' : src_test_path, 'dst_train_path' : dst_train_path, 'dst_test_path' : dst_test_path,
+        'src_train_gt_path': src_train_gt_path, 'src_test_gt_path': src_test_gt_path, 'dst_train_gt_path': dst_train_gt_path, 'dst_test_gt_path': dst_test_gt_path,
+        'src_train_crop_img_path' : src_train_crop_img_path, 'src_test_crop_img_path' : src_test_crop_img_path, 'dst_train_crop_img_path' : dst_train_crop_img_path, 'dst_test_crop_img_path' : dst_test_crop_img_path,
+        'src_train_gtd_path' : src_train_gtd_path, 'src_test_gtd_path' : src_test_gtd_path, 'dst_train_gtd_path' : dst_train_gtd_path, 'dst_test_gtd_path' : dst_test_gtd_path,
+    }
+
+    return merge_info
+
+def main_generate_img_pkl(ini, common_info, logger=None):
+    """
+        cptn_path, crop_path 파일을 변환하여
+        img_pkl_path에 저장한다.
+    """
+
+    # Init. path variables
+    generate_img_pkl_info = {}
+    for key, val in ini.items():
+        generate_img_pkl_info[key] = replace_string_from_dict(val, common_info)
+
+    for tgt_mode in ['TRAIN', 'TEST']:
+        generate_img_pkl_args = [
+            '--dataset_type', common_info['dataset_type'],
+            '--op_mode', tgt_mode,
+            '--cptn_path', generate_img_pkl_info[f'{tgt_mode.lower()}_cptn_path'],
+            '--crop_path', generate_img_pkl_info[f'{tgt_mode.lower()}_crop_path'],
+            '--img_pkl_path', generate_img_pkl_info[f'{tgt_mode.lower()}_img_pkl_path'],
+        ]
+        gen_pkl.main(gen_pkl.parse_arguments(generate_img_pkl_args))
+
+    return True
+
+def main_generate_label_align_pkl(ini, common_info, logger=None):
+    """
+        gtd_path 파일을 변환하여
+        label_pkl_path, align_pkl_path에 저장한다.
+    """
+
+    # Init. path variables
+    generate_label_align_pkl_info = {}
+    for key, val in ini.items():
+        generate_label_align_pkl_info[key] = replace_string_from_dict(val, common_info)
+
+    for tgt_mode in ['TRAIN', 'TEST']:
+        generate_label_align_pkl_args = [
+            '--dataset_type', common_info['dataset_type'],
+            '--op_mode', tgt_mode,
+            '--gtd_path', generate_label_align_pkl_info[f'{tgt_mode.lower()}_gtd_path'],
+            '--label_pkl_path', generate_label_align_pkl_info[f'{tgt_mode.lower()}_label_pkl_path'],
+            '--align_pkl_path', generate_label_align_pkl_info[f'{tgt_mode.lower()}_align_pkl_path'],
+        ]
+        prepare_label.main(prepare_label.parse_arguments(generate_label_align_pkl_args))
 
     return True
 
@@ -345,19 +405,17 @@ def main(args):
     elif args.op_mode == 'GENERATE_GTD':
         main_generate_gtd(ini[args.op_mode], common_info, logger=logger)
     elif args.op_mode == 'CROP_IMG':
-        main_crop(ini[args.op_mode], logger=logger)
-    elif args.op_mode == 'CREATE_LMDB':
-        main_create(ini[args.op_mode], logger=logger)
+        main_crop(ini[args.op_mode], common_info, logger=logger)
     elif args.op_mode == 'MERGE':
-        main_merge(ini[args.op_mode], logger=logger)
+        main_merge(ini[args.op_mode], common_info, logger=logger)
+    elif args.op_mode == 'GENERATE_IMG_PKL':
+        main_generate_img_pkl(ini[args.op_mode], common_info, logger=logger)
+    elif args.op_mode == 'GENERATE_LABEL_ALIGN_PKL':
+        main_generate_label_align_pkl(ini[args.op_mode], common_info, logger=logger)
     elif args.op_mode == 'TRAIN':
         main_train(ini[args.op_mode], model_dir=args.model_dir, logger=logger)
     elif args.op_mode == 'TEST':
         main_test(ini[args.op_mode], model_dir=args.model_dir, logger=logger)
-    elif args.op_mode == 'TRAIN_TEST':
-        ret, model_dir = main_train(ini['TRAIN'], model_dir=args.model_dir, logger=logger)
-        main_test(ini['TEST'], model_dir, logger=logger)
-        print(" # Trained model directory is {}".format(model_dir))
     else:
         print(" @ Error: op_mode, {}, is incorrect.".format(args.op_mode))
 
@@ -366,7 +424,7 @@ def main(args):
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--op_mode", required=True, choices=['GENERATE_SPLIT_CPTN', 'GENERATE_GTD', 'CROP_IMG', 'CREATE_LMDB', 'MERGE', 'TRAIN', 'TEST', 'TRAIN_TEST'], help="operation mode")
+    parser.add_argument("--op_mode", required=True, choices=['GENERATE_SPLIT_CPTN', 'GENERATE_GTD', 'CROP_IMG', 'MERGE', 'GENERATE_IMG_PKL', 'GENERATE_LABEL_ALIGN_PKL', 'TRAIN', 'TEST'], help="operation mode")
     parser.add_argument("--ini_fname", required=True, help="System code ini filename")
     parser.add_argument("--model_dir", default="", help="Model directory")
 
@@ -379,7 +437,7 @@ def parse_arguments(argv):
 
 
 SELF_TEST_ = True
-OP_MODE = 'GENERATE_GTD' # GENERATE_SPLIT_CPTN / GENERATE_GTD / CROP_IMG / CREATE_LMDB or MERGE / TRAIN / TEST / TRAIN_TEST
+OP_MODE = 'GENERATE_LABEL_ALIGN_PKL' # GENERATE_SPLIT_CPTN / GENERATE_GTD / CROP_IMG / MERGE / GENERATE_IMG_PKL / GENERATE_LABEL_ALIGN_PKL / TRAIN / TEST
 INI_FNAME = _this_basename_ + ".ini"
 
 
