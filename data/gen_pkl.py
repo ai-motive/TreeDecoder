@@ -4,6 +4,7 @@ import os
 import sys
 import _pickle as pkl
 import numpy
+import cv2
 from scipy.misc import imread, imresize, imsave
 from utility.general_utils import folder_exists, file_exists, concat_text_files
 
@@ -45,7 +46,14 @@ def main(args):
             if not(image_file_):
                 continue
             im = imread(image_file)
-            channels = 1 if len(im.shape) == 2 else 3
+
+            if len(im.shape) == 2:
+                channels = 1
+            else:
+                im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+                _, im = cv2.threshold(im, 127, 255, cv2.THRESH_BINARY_INV)
+                channels = 1
+
             mat = numpy.zeros([channels, im.shape[0], im.shape[1]], dtype='uint8')
             for channel in range(channels):
                 # image_file = image_path + key + '_' + str(channel) + ext
@@ -58,12 +66,12 @@ def main(args):
             sentNum = sentNum + 1
             features[key] = mat
             if sentNum / 500 == sentNum * 1.0 / 500:
-                print('process sentences ', sentNum)
+                print('process sentences : {}'.format(sentNum))
 
     print(f'load {op_mode} images done. sentence number ', sentNum)
 
     pkl.dump(features, oupFp_feature)
-    print('Op_mode : {}, save file done'.format(args.op_mode))
+    print('Op_mode : {}, save file done : {}'.format(args.op_mode, outFile))
     oupFp_feature.close()
 
     return True
@@ -73,9 +81,9 @@ def parse_arguments(argv):
 
     parser.add_argument("--dataset_type", required=True, choices=['CROHME', '20K', 'MATHFLAT'], help="dataset type")
     parser.add_argument("--op_mode", required=True, choices=['TRAIN', 'TEST'], help="operation mode")
-    parser.add_argument("--cptn_path", required=True, help="Root caption path")
-    parser.add_argument("--crop_path", required=True, help="Root crop image path")
-    parser.add_argument("--img_pkl_path", required=True, help="Root crop image pickle path")
+    parser.add_argument("--cptn_path", required=True, help="Caption file path")
+    parser.add_argument("--crop_path", required=True, help="Crop image folder path")
+    parser.add_argument("--img_pkl_path", required=True, help="Crop image pickle path")
     
     args = parser.parse_args(argv)
 

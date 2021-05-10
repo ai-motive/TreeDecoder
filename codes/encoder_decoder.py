@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from encoder import DenseNet
-from decoder import Gru_cond_layer, Gru_prob
+from codes.encoder import DenseNet
+from codes.decoder import Gru_cond_layer, Gru_prob
 import math
 
 # create gru init state

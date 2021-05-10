@@ -6,12 +6,17 @@ import numpy as np
 import random
 import torch
 from torch import optim, nn
-from utils import load_dict, prepare_data, gen_sample, weight_init, compute_wer, compute_sacc
-from encoder_decoder import Encoder_Decoder
-from data_iterator import dataIterator
+from codes.utils import load_dict, prepare_data, gen_sample, weight_init, compute_wer, compute_sacc
+from codes.encoder_decoder import Encoder_Decoder
+from codes.data_iterator import dataIterator
 from datetime import datetime
 from utility.general_utils import folder_exists, get_filenames
 
+def str2bool(v):
+    if v == 'True':
+        return True
+    elif v == 'False':
+        return False
 
 def main(args):
     # whether use multi-GPUs
@@ -24,16 +29,26 @@ def main(args):
     reload_flag = args.reload_flag
 
     # load configurations
-    # root_paths
-    bfs2_path = args.root_path
+    # Paths for train, test
+    if args.dataset_type == 'CROHME':
+        concat_dataset_path = '../data/CROHME/'
+        img_path, cptn_path = os.path.join(concat_dataset_path, 'image/'), os.path.join(concat_dataset_path, 'caption/')
+        dict_path, re_dict_path = os.path.join(concat_dataset_path, 'dictionary.txt'), os.path.join(concat_dataset_path, 're_dictionary.txt')
+        train_img_pkl_path, test_img_pkl_path = os.path.join(img_path, 'offline-train.pkl'), os.path.join(img_path, 'offline-test.pkl')
+        train_label_pkl_path, test_label_pkl_path = os.path.join(cptn_path,'train_caption_label_gtd.pkl'), os.path.join(cptn_path, 'test_caption_label_gtd.pkl')
+        train_align_pkl_path, test_align_pkl_path = os.path.join(cptn_path,'train_caption_label_align_gtd.pkl'), os.path.join(cptn_path, 'test_caption_label_align_gtd.pkl')
+    elif args.dataset_type == 'MATHFLAT':
+        concat_dataset_path = args.concat_dataset_path
+        dict_path, re_dict_path = os.path.join(concat_dataset_path, 'dictionary.txt'), os.path.join(concat_dataset_path, 're_dictionary.txt')
+        train_img_pkl_path, test_img_pkl_path = os.path.join(args.train_path, 'offline-train.pkl'), os.path.join(args.test_path, 'offline-test.pkl')
+        train_label_pkl_path, test_label_pkl_path = os.path.join(args.train_path, 'train_caption_label.pkl'), os.path.join(args.test_path, 'test_caption_label.pkl')
+        train_align_pkl_path, test_align_pkl_path = os.path.join(args.train_path, 'train_caption_align.pkl'), os.path.join(args.test_path, 'test_caption_align.pkl')
+
     work_path = '../train/'
 
-    # paths
-    img_path = os.path.join(bfs2_path, 'image/')
-    label_path = os.path.join(bfs2_path, 'caption/')
-    dictionaries = [bfs2_path + 'dictionary.txt', bfs2_path + 'relation_dictionary.txt']
-    datasets = [img_path + 'offline-train.pkl', label_path + 'train_caption_label_gtd.pkl', label_path + 'train_caption_label_align_gtd.pkl']
-    valid_datasets = [img_path + 'offline-test.pkl', label_path + 'test_caption_label_gtd.pkl', label_path + 'test_caption_label_align_gtd.pkl']
+    dictionaries = [dict_path, re_dict_path]
+    datasets = [train_img_pkl_path, train_label_pkl_path, train_align_pkl_path]
+    valid_datasets = [test_img_pkl_path, test_label_pkl_path, test_align_pkl_path]
 
     model_date = datetime.today().strftime("%y%m%d")
     result_path = os.path.join(work_path, 'results', model_date)
@@ -358,16 +373,18 @@ def main(args):
         if estop:
             break
 
-        return True
+    return True
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--dataset_type", required=True, choices=['CROHME', '20K', 'MATHFLAT'], help="dataset type")
-    parser.add_argument("--multi_gpu_flag", default=False, type=bool, help="whether use multi-GPUs")
-    parser.add_argument("--init_param_flag", default=True, type=bool, help="whether init params")
-    parser.add_argument("--reload_flag", default=False, type=bool, help="whether reload params")    ## True
-    parser.add_argument("--root_path", default="../data/CROHME/", type=str, help="data root path")
+    parser.add_argument("--concat_dataset_path", type=str, help="Concated dataset path")
+    parser.add_argument("--train_path", type=str, help="train data folder path")
+    parser.add_argument("--test_path", type=str, help="test data folder path")
+    parser.add_argument("--multi_gpu_flag", default=False, type=str2bool, help="whether use multi-GPUs")
+    parser.add_argument("--init_param_flag", default=True, type=str2bool, help="whether init params")
+    parser.add_argument("--reload_flag", default=False, type=str2bool, help="whether reload params")    ## True
     parser.add_argument('--batch_size', type=int, default=8, help='input batch size')   ## 2
     parser.add_argument('--maxlen', type=int, default=200, help='maximum-label-length')
     parser.add_argument('--max_epochs', type=int, default=5000, help='maximum-data-epoch')
@@ -376,7 +393,7 @@ def parse_arguments(argv):
     parser.add_argument('--decay_c', type=float, default=1e-4, help='decay-c')
     parser.add_argument('--clip_c', type=float, default=100.0, help='clip-c')
 
-    parser.add_argument("--estop", default=False, type=bool, help="whether use early stop")
+    parser.add_argument("--estop", default=False, type=str2bool, help="whether use early stop")
 
     """ Model Architecture """
     parser.add_argument('--K', type=int, default=106, help='number of character label') # 112
@@ -388,16 +405,16 @@ def parse_arguments(argv):
 
 
 SELF_TEST_ = True
-DATASET_TYPE = 'CROHME' # CROHME / 20K / MATHFLAT(TODO)
+DATASET_TYPE = 'MATHFLAT' # CROHME / 20K / MATHFLAT
 
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         if SELF_TEST_:
             sys.argv.extend(["--dataset_type", DATASET_TYPE])
-            sys.argv.extend(["--reload_flag", 'True'])
-            sys.argv.extend(["--batch_size", '2'])
-            sys.argv.extend(["--K", '112'])
+            # sys.argv.extend(["--reload_flag", 'True'])
+            # sys.argv.extend(["--batch_size", '2'])
+            # sys.argv.extend(["--K", '112'])
         else:
             sys.argv.extend(["--help"])
 

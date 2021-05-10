@@ -78,15 +78,8 @@ def main(args):
                 elif args.dataset_type == 'MATHFLAT':
                     core_name = line.replace('\n', '').split('\t')[0]
                     latex_val = line.replace('\n', '').split('\t')[1]
-                    strip_latex = latex_val.replace(' ', '')
-
+                    latex_parts = latex_val.split()
                     print(" [GENERATE_GTD] # Processing {} ({:d}/{:d}) : {}".format(core_name, (process_num + 1), len(lines), line.strip()))
-
-                    if strip_latex[:2] == '{}':
-                        strip_latex = strip_latex[2:]
-
-                    latex_parts = split_string_to_latex_symbols(strip_latex,
-                                                                latex_symbols=ARRAY_SYMBOLS+LATEX_SYMBOLS)
 
                     parts = [core_name] + latex_parts
 

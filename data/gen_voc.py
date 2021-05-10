@@ -29,8 +29,8 @@ def gen_voc(infile, vocfile):
     return True
 
 def main(args):
-    cation_path = os.path.join(_this_folder_, args.dataset_type, 'caption', 'total_caption.txt')
-    dict_path = os.path.join(_this_folder_, args.dataset_type, 'dictionary.txt')
+    cation_path = args.total_cptn_path
+    dict_path = args.dict_path
     gen_ = gen_voc(cation_path, dict_path)
     if gen_:
         print("Generated dictonary : {}".format(dict_path))
@@ -40,6 +40,8 @@ def parse_arguments(argv):
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--dataset_type", required=True, choices=['CROHME', '20K', 'MATHFLAT'], help="dataset type")
+    parser.add_argument("--total_cptn_path", required=True, help="Total caption file path")
+    parser.add_argument("--dict_path", required=True, help="Result dictionary file path")
 
     args = parser.parse_args(argv)
 
@@ -47,13 +49,14 @@ def parse_arguments(argv):
 
 
 SELF_TEST_ = True
-DATASET_TYPE = 'CROHME' # CROHME / 20K / MATHFLAT(TODO)
+DATASET_TYPE = 'MATHFLAT' # CROHME / 20K / MATHFLAT
 
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         if SELF_TEST_:
             sys.argv.extend(["--dataset_type", DATASET_TYPE])
+
         else:
             sys.argv.extend(["--help"])
 

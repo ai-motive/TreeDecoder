@@ -40,12 +40,12 @@ def gen_gtd_label(args):
 
         process_num = process_num + 1
         if process_num // 2000 == process_num * 1.0 / 2000:
-            print ('process files', process_num)
+            print ('process label files : ', process_num)
 
-    print ('process files number ', process_num)
+    print ('process label files number : ', process_num)
 
     pkl.dump(label_lines, out_label_fp)
-    print ('save file done')
+    print ('save label pickle file done')
     out_label_fp.close()
 
 
@@ -83,12 +83,12 @@ def gen_gtd_align(args):
 
         process_num = process_num + 1
         if process_num // 2000 == process_num * 1.0 / 2000:
-            print ('process files', process_num)
+            print ('process align files : ', process_num)
 
-    print ('process files number ', process_num)
+    print ('process align files number : ', process_num)
 
     pkl.dump(label_aligns, out_label_fp)
-    print ('save file done')
+    print ('save align file done')
     out_label_fp.close()
 
 def main(args):
