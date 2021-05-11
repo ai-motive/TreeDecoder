@@ -511,7 +511,7 @@ def compute_sacc(rec_mat, label_mat, rec_ridx_mat, label_ridx_mat, rec_re_mat, l
         label_ridx_list = label_ridx_mat[key_rec]
         rec_re_list = rec_re_mat[key_rec]
         label_re_list = label_re_mat[key_rec]
-        rec_result = cmp_sacc_result(rec_list,label_list,rec_ridx_list,label_ridx_list,rec_re_list,label_re_list,chdict,redict)
+        rec_result = cmp_sacc_result(rec_list, label_list, rec_ridx_list, label_ridx_list, rec_re_list, label_re_list, chdict,redict)
         if rec_result:
             correct_num += 1
     correct_rate = 1. * correct_num / total_num

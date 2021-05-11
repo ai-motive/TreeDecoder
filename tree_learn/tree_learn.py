@@ -7,7 +7,7 @@ import subprocess
 from utility import general_utils as utils
 from utility.str_utils import replace_string_from_dict
 from utility import multi_process
-from codes import latex2gtd, prepare_label, train_wap
+from codes import latex2gtd, prepare_label, train_wap, translate
 from data import gen_pkl, gen_voc
 
 
@@ -433,10 +433,31 @@ def main_train(ini, common_info, logger=None):
 
     return True
 
-def main_test(ini, model_dir=None, logger=None):
+def main_test(ini, common_info, logger=None):
+    # Init. path variables
+    vars = {}
+    for key, val in ini.items():
+        vars[key] = replace_string_from_dict(val, common_info)
+
+    model_dir = max([os.path.join(vars['root_model_path'], d) for d in os.listdir(ini["root_model_path"])],
+                    key=os.path.getmtime)
+    reload_path = sorted(utils.get_filenames(model_dir, extensions=['WAP_params.pkl'], recursive_=True))[-1]
+
+    args = [
+        '--dataset_type', common_info['dataset_type'],
+        '--concat_dataset_path', vars['concat_dataset_path'],
+        '--test_path', vars['test_path'],
+        '--model_path', reload_path,
+        '--dictionary_target', vars['dict_path'],
+        '--dictionary_retarget', vars['re_dict_path'],
+        '--output_path', vars['rst_path'],
+        '--batch_size', ini['batch_size'],
+        '--K', ini['K'],
+        '--k', ini['num_k'],
+    ]
+    translate.main(translate.parse_arguments(args))
 
     return True
-
 
 def main(args):
     ini = utils.get_ini_parameters(args.ini_fname)
@@ -486,7 +507,7 @@ def parse_arguments(argv):
 
 
 SELF_TEST_ = True
-OP_MODE = 'TRAIN' # GENERATE_SPLIT_CPTN / GENERATE_GTD / CROP_IMG / MERGE / GENERATE_IMG_PKL / GENERATE_LABEL_ALIGN_PKL / GENERATE_VOC / TRAIN / TEST
+OP_MODE = 'TEST' # GENERATE_SPLIT_CPTN / GENERATE_GTD / CROP_IMG / MERGE / GENERATE_IMG_PKL / GENERATE_LABEL_ALIGN_PKL / GENERATE_VOC / TRAIN / TEST
 INI_FNAME = _this_basename_ + ".ini"
 
 

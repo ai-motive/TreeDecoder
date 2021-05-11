@@ -5,9 +5,9 @@ import os
 import time
 import sys
 import torch
-from data_iterator import dataIterator, dataIterator_test
-from encoder_decoder import Encoder_Decoder
-from utils import load_dict, prepare_data, gen_sample, weight_init, compute_wer, compute_sacc
+from codes.data_iterator import dataIterator, dataIterator_test
+from codes.encoder_decoder import Encoder_Decoder
+from codes.utils import load_dict, prepare_data, gen_sample, weight_init, compute_wer, compute_sacc
 from datetime import datetime
 
 
@@ -197,13 +197,22 @@ def load_dict(dictFile):
 
 
 def main(args):
-    model_path, dictionary_target, dictionary_retarget, fea, output_path, k =\
-        args.model_path, args.dictionary_target, args.dictionary_retarget, args.fea, args.output_path, args.k
-    # paths
-    root_path = "../data/CROHME/"
-    img_path = os.path.join(root_path, 'image/')
-    label_path = os.path.join(root_path, 'caption/')
-    valid_datasets = [img_path + 'offline-test.pkl', label_path + 'test_caption_label_gtd.pkl', label_path + 'test_caption_label_align_gtd.pkl']
+    concat_dataset_path, test_path, model_path, dictionary_target, dictionary_retarget, fea, output_path, k = \
+        args.concat_dataset_path, args.test_path, args.model_path, args.dictionary_target, args.dictionary_retarget, args.fea, args.output_path, args.k
+
+    # Paths for train, test
+    if args.dataset_type == 'CROHME':
+        concat_dataset_path = '../data/CROHME/'
+        img_path, cptn_path = os.path.join(concat_dataset_path, 'image/'), os.path.join(concat_dataset_path, 'caption/')
+        test_img_pkl_path = os.path.join(img_path, 'offline-test.pkl')
+        test_label_pkl_path = os.path.join(cptn_path, 'test_caption_label_gtd.pkl')
+        test_align_pkl_path = os.path.join(cptn_path, 'test_caption_label_align_gtd.pkl')
+    elif args.dataset_type == 'MATHFLAT':
+        test_img_pkl_path = os.path.join(args.test_path, 'offline-test.pkl')
+        test_label_pkl_path = os.path.join(args.test_path, 'test_caption_label.pkl')
+        test_align_pkl_path = os.path.join(args.test_path, 'test_caption_align.pkl')
+
+    valid_datasets = [test_img_pkl_path, test_label_pkl_path, test_align_pkl_path]
 
     # set parameters
     params = {}
@@ -225,7 +234,7 @@ def main(args):
 
     # load model
     model = Encoder_Decoder(params)
-    model.load_state_dict(torch.load(model_path,map_location=lambda storage,loc:storage))
+    model.load_state_dict(torch.load(model_path, map_location=lambda storage,loc:storage))
     # enable CUDA
     model.cuda()
 
@@ -293,21 +302,32 @@ def main(args):
                     ss = sample[min_score_index]
                     rs = relation_sample[min_score_index]
                     mali = malpha_list[min_score_index]
+                    fpp_sample = open(valid_out_path + valid_uid_list[valid_count_idx] + '.txt', 'w')   ##
+                    file_malpha_sample = valid_malpha_path + valid_uid_list[valid_count_idx] + '_malpha.txt'    ##
                     for i, [vv, rv] in enumerate(zip(ss, rs)):
                         if vv == 0:
                             rec_mat[key].append(vv)
                             rec_re_mat[key].append(0)  # End
+                            string = worddicts_r[vv] + '\tEnd\n'        ##
+                            fpp_sample.write(string)        ##
                             break
                         else:
                             if i == 0:
                                 rec_mat[key].append(vv)
                                 rec_re_mat[key].append(6)  # Start
+                                string = worddicts_r[vv] + '\tStart\n'      ##
                             else:
                                 rec_mat[key].append(vv)
                                 rec_re_mat[key].append(rv)
+                                string = worddicts_r[vv] + '\t' + reworddicts_r[rv] + '\n'      ##
+                            fpp_sample.write(string)        ##
+
                     ma_idx_list = np.array(mali).astype(np.int64)
                     ma_idx_list[-1] = int(len(ma_idx_list) - 1)
                     rec_ridx_mat[key] = ma_idx_list
+                    np.savetxt(file_malpha_sample, np.array(mali))      ##
+                    fpp_sample.close()      ##
+
                 valid_count_idx = valid_count_idx + 1
 
             print('{}/{}-th test data processed !!!'.format(valid_count_idx, len(valid_uid_list)))
@@ -333,6 +353,8 @@ def main(args):
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_type", required=True, choices=['CROHME', '20K', 'MATHFLAT'], help="dataset type")
+    parser.add_argument("--concat_dataset_path", type=str, help="Concated dataset path")
+    parser.add_argument("--test_path", type=str, help="test data folder path")
     parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
     parser.add_argument('--maxlen', type=int, default=200, help='maximum-label-length')
     parser.add_argument('--k', type=int, default=10)
