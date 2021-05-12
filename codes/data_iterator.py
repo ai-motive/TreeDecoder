@@ -10,18 +10,18 @@ def fopen(filename, mode='r'):
         return gzip.open(filename, mode)
     return open(filename, mode)
 
-def dataIterator(feature_file,label_file,align_file,dictionary,redictionary,batch_size,batch_Imagesize,maxlen,maxImagesize):
+def dataIterator(feature_file, label_file, align_file, dictionary, redictionary, batch_size, batch_Imagesize, maxlen, maxImagesize):
     
-    fp_feature=open(feature_file,'rb')
-    features=pkl.load(fp_feature)
+    fp_feature = open(feature_file,'rb')
+    features = pkl.load(fp_feature)
     fp_feature.close()
 
-    fp_label=open(label_file,'rb')
-    labels=pkl.load(fp_label)
+    fp_label = open(label_file,'rb')
+    labels = pkl.load(fp_label)
     fp_label.close()
 
-    fp_align=open(align_file,'rb')
-    aligns=pkl.load(fp_align)
+    fp_align = open(align_file,'rb')
+    aligns = pkl.load(fp_align)
     fp_align.close()
 
     ltargets = {}
@@ -171,57 +171,53 @@ def dataIterator(feature_file,label_file,align_file,dictionary,redictionary,batc
 
     print ('total ',len(feature_total), 'batch data loaded')
 
-    return list(zip(feature_total,llabel_total,rlabel_total,relabel_total,align_total,lpos_total,rpos_total)),uidList
+    return list(zip(feature_total, llabel_total, rlabel_total, relabel_total, align_total, lpos_total, rpos_total)), uidList
 
-
-def dataIterator_test(feature_file,dictionary,redictionary,batch_size,batch_Imagesize,maxImagesize):
-    
-    fp_feature=open(feature_file,'rb')
-    features=pkl.load(fp_feature)
+def dataIterator_test(feature_file, batch_size, batch_Imagesize, maxImagesize):
+    fp_feature = open(feature_file,'rb')
+    features = pkl.load(fp_feature)
     fp_feature.close()
 
-    imageSize={}
+    imageSize = {}
     for uid,fea in features.items():
-        imageSize[uid]=fea.shape[1]*fea.shape[2]
+        imageSize[uid] = fea.shape[1] * fea.shape[2]
 
-    imageSize= sorted(imageSize.items(), key=lambda d:d[1]) # sorted by sentence length,  return a list with each triple element
+    imageSize = sorted(imageSize.items(), key=lambda d:d[1]) # sorted by sentence length,  return a list with each triple element
 
-    feature_batch=[]
+    feature_total = []
+    feature_batch = []
+    uidList = []
 
-    feature_total=[]
-
-    uidList=[]
-
-    batch_image_size=0
-    biggest_image_size=0
-    i=0
+    batch_image_size = 0
+    biggest_image_size = 0
+    i = 0
     for uid,size in imageSize:
-        if size>biggest_image_size:
-            biggest_image_size=size
-        fea=features[uid]
-        batch_image_size=biggest_image_size*(i+1)
-        if size>maxImagesize:
+        if size > biggest_image_size:
+            biggest_image_size = size
+
+        fea = features[uid]
+        batch_image_size = biggest_image_size * (i+1)
+        if size > maxImagesize:
             print ('this image size bigger than', maxImagesize, 'ignore')
         elif uid == '34_em_225':
             print ('this image ignore', uid)
         else:
             uidList.append(uid)
-            if batch_image_size>batch_Imagesize or i==batch_size: # a batch is full
+            if (batch_image_size > batch_Imagesize) or (i == batch_size): # a batch is full
                 feature_total.append(feature_batch)
 
-                i=0
-                biggest_image_size=size
-                feature_batch=[]
+                i = 0
+                biggest_image_size = size
+                feature_batch = []
                 feature_batch.append(fea)
-                batch_image_size=biggest_image_size*(i+1)
-                i+=1
+                batch_image_size = biggest_image_size*(i+1)
+                i += 1
             else:
                 feature_batch.append(fea)
-                i+=1
+                i += 1
 
     # last batch
     feature_total.append(feature_batch)
-
     print ('total ',len(feature_total), 'batch data loaded')
 
     return feature_total, uidList

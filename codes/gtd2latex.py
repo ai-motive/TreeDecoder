@@ -4,7 +4,7 @@ import os
 import sys
 import pickle as pkl
 import numpy
-from latex2gtd import split_string_to_latex_symbols, ARRAY_SYMBOLS, LATEX_SYMBOLS
+from latex2gtd import ABOVE_SYMBOLS, BELOW_SYMBOLS, ARRAY_SYMBOLS, LATEX_SYMBOLS, split_string_to_latex_symbols
 
 
 _this_folder_ = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +21,7 @@ def convert(nodeid, gtd_list):
     if not isparent:
         return [gtd_list[nodeid][0]]
     else:
-        if gtd_list[nodeid][0] == '\\frac':
+        if (gtd_list[nodeid][0] in ABOVE_SYMBOLS) or (gtd_list[nodeid][0] in BELOW_SYMBOLS):
             return_string = [gtd_list[nodeid][0]]
             for i in range(len(child_list)):
                 idx, re = child_list[i][1], child_list[i][2]

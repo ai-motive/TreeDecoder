@@ -440,10 +440,11 @@ def main_test(ini, common_info, logger=None):
         vars[key] = replace_string_from_dict(val, common_info)
 
     model_dir = max([os.path.join(vars['root_model_path'], d) for d in os.listdir(ini["root_model_path"])],
-                    key=os.path.getmtime)
+                        key=os.path.getmtime)
     reload_path = sorted(utils.get_filenames(model_dir, extensions=['WAP_params.pkl'], recursive_=True))[-1]
 
     args = [
+        '--op_mode', 'TEST',
         '--dataset_type', common_info['dataset_type'],
         '--concat_dataset_path', vars['concat_dataset_path'],
         '--test_path', vars['test_path'],

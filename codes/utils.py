@@ -5,6 +5,8 @@ import sys
 import pickle as pkl
 import torch
 from torch import nn
+from codes.gtd2latex import convert, split_string_to_latex_symbols, ARRAY_SYMBOLS, LATEX_SYMBOLS
+from codes.latex2gtd import SUB_SUP_SYMBOLS
 
 
 class BatchBucket():
@@ -451,7 +453,7 @@ def compute_wer(rec_mat, label_mat):
     sacc = float(total_line_rec)/total_line
     return wer, sacc
 
-def cmp_sacc_result(rec_list,label_list,rec_ridx_list,label_ridx_list,rec_re_list,label_re_list,chdict,redict):
+def cmp_sacc_result(rec_list, label_list, rec_ridx_list, label_ridx_list, rec_re_list, label_re_list, chdict, redict):
     rec = True
     out_sym_pdict = {}
     label_sym_pdict = {}
@@ -516,3 +518,60 @@ def compute_sacc(rec_mat, label_mat, rec_ridx_mat, label_ridx_mat, rec_re_mat, l
             correct_num += 1
     correct_rate = 1. * correct_num / total_num
     return correct_rate
+
+def parse_to_latexes(rec_mat, rec_ridx_mat, rec_re_mat, chdict, redict):
+    latexes = []
+    for key_rec in rec_mat:
+        rec_list = rec_mat[key_rec]
+        rec_ridx_list = rec_ridx_mat[key_rec]
+        rec_re_list = rec_re_mat[key_rec]
+        gtd_list = parse_to_latex(rec_list, rec_ridx_list, rec_re_list, chdict, redict)
+
+        latex_list = convert(1, gtd_list)
+
+        if 'illegal' in latex_list:
+            print('latex_list has error')
+            latex_string = ' '
+        else:
+            latex_string = ' '.join(latex_list)
+
+        strip_latex = latex_string
+
+        if strip_latex[:2] == '{}':
+            strip_latex = strip_latex[2:]
+
+        latex_parts = split_string_to_latex_symbols(strip_latex,
+                                                    latex_symbols=ARRAY_SYMBOLS + LATEX_SYMBOLS)
+        out_string = "".join(latex_parts)
+        latexes.append(out_string)
+
+    return latexes
+
+def parse_to_latex(rec_list, rec_ridx_list, rec_re_list, chdict, redict):
+    out_sym_pdict = {}
+    out_sym_pdict['0'] = '<s>'
+    for idx, sym in enumerate(rec_list):
+        out_sym_pdict[str(idx+1)] = chdict[sym]
+
+    gtd_list = []
+    gtd_list.append(['<s>', 0, -1, 'root'])
+    for idx in range(len(rec_list)):
+        out_sym = chdict[rec_list[idx]]
+        out_repos = int(rec_ridx_list[idx])
+        out_re = redict[rec_re_list[idx]]
+
+        if out_repos in out_sym_pdict:
+            out_resym_s = out_sym_pdict[out_repos]
+        else:
+            out_resym_s = 'unknown'
+
+        # post-processing only for math recognition
+        if out_resym_s in SUB_SUP_SYMBOLS:
+            if out_re == 'Above':
+                out_re = 'Sup'
+            if out_re == 'Below':
+                out_re = 'Sub'
+
+        gtd_list.append([out_sym, idx+1, out_repos, out_re])
+
+    return gtd_list

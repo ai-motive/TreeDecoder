@@ -10,7 +10,7 @@ import re
 _this_folder_ = os.path.dirname(os.path.abspath(__file__))
 _this_basename_ = os.path.splitext(os.path.basename(__file__))[0]
 
-BELOW_ABOVE_SYMBOLS = ['\\sum', '\\int', '\\lim']
+SUB_SUP_SYMBOLS = ['\\sum', '\\int', '\\lim']
 ABOVE_SYMBOLS = ['\\frac', '\\overset']
 BELOW_SYMBOLS = ['\\underset']
 INSIDE_SYMBOLS = ['\\boxed', '\\dot', '\\hat',
@@ -166,13 +166,13 @@ def main(args):
                                         sys.exit()
 
                                     # ['\\sum', '\\int', '\\lim'] _ {
-                                    elif cap[idx - 2] in BELOW_ABOVE_SYMBOLS:
+                                    elif cap[idx - 2] in SUB_SUP_SYMBOLS:
                                         gtd_stack.append([cap[idx - 2], str(outidx - 1), 'Below'])
                                         idx += 1
 
                                     # } _ {
                                     elif cap[idx - 2] == '}':
-                                        if gtd_stack[-1][0] in BELOW_ABOVE_SYMBOLS:
+                                        if gtd_stack[-1][0] in SUB_SUP_SYMBOLS:
                                             gtd_stack[-1][2] = 'Below'
                                         else:
                                             gtd_stack[-1][2] = 'Sub'
@@ -193,13 +193,13 @@ def main(args):
                                         sys.exit()
 
                                     # ['\\sum', '\\int', '\\lim'] ^ {
-                                    elif cap[idx - 2] in BELOW_ABOVE_SYMBOLS:
+                                    elif cap[idx - 2] in SUB_SUP_SYMBOLS:
                                         gtd_stack.append([cap[idx - 2], str(outidx - 1), 'Above'])
                                         idx += 1
 
                                     # } ^ {
                                     elif cap[idx - 2] == '}':
-                                        if gtd_stack[-1][0] in BELOW_ABOVE_SYMBOLS:
+                                        if gtd_stack[-1][0] in SUB_SUP_SYMBOLS:
                                             gtd_stack[-1][2] = 'Above'
                                         else:
                                             gtd_stack[-1][2] = 'Sup'
